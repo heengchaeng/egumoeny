@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="purple_200">#FFBB86FC</color>
+    <color name="purple_500">#FF6200EE</color>
+    <color name="purple_700">#FF3700B3</color>
+    <color name="teal_200">#FF03DAC5</color>
+    <color name="teal_700">#FF018786</color>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+
+    <!-- 애플 스타일 흑백 시스템 색상 -->
+    <color name="primary">#000000</color>
+    <color name="primary_dark">#000000</color>
+    <color name="accent">#000000</color>
+    <color name="background">#F9FAFB</color>
+    <color name="card_background">#FFFFFF</color>
+    <color name="text_primary">#111827</color>
+    <color name="text_secondary">#6B7280</color>
+    
+    <!-- 파스텔 카테고리 색상 -->
+    <color name="cat_food">#FFB7B2</color>       <!-- 파스텔 핑크 -->
+    <color name="cat_transport">#B3C5FF</color>  <!-- 파스텔 블루 -->
+    <color name="cat_shopping">#FFEFAA</color>   <!-- 파스텔 옐로우 -->
+    <color name="cat_culture">#E2C2FF</color>    <!-- 파스텔 퍼플 -->
+    <color name="cat_etc">#B5EAD7</color>        <!-- 파스텔 민트/그린 -->
+
+    <color name="border_color">#E5E7EB</color>
+    <color name="warning_red">#DC2626</color>
+</resources>

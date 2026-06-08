@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">에구머니?</string>
+    <string name="input_hint">지출 내역을 한 줄로 입력하세요 (예: 점심으로 맛있는 돈까스 13000원 먹음)</string>
+    <string name="register">등록</string>
+    <string name="budget_setting">예산 설정</string>
+    <string name="weekly_feedback_title">💡 AI 잔소리 비서 (에구머니나!)</string>
+    <string name="monthly_chart_title">📊 이번 달 카테고리별 소비</string>
+    <string name="weekly_chart_title">📈 최근 7일 지출 추이</string>
+    <string name="weather_loading">날씨 정보 가져오는 중...</string>
+</resources>

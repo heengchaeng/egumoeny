@@ -23,6 +23,7 @@
     <color name="cat_shopping">#FFEFAA</color>   <!-- 파스텔 옐로우 -->
     <color name="cat_culture">#E2C2FF</color>    <!-- 파스텔 퍼플 -->
     <color name="cat_etc">#B5EAD7</color>        <!-- 파스텔 민트/그린 -->
+    <color name="cat_investment">#FFD700</color>
 
     <color name="border_color">#E5E7EB</color>
     <color name="warning_red">#DC2626</color>

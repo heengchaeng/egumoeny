@@ -1,6 +1,7 @@
 package com.mobile.egumoney.viewmodel
 
 import android.app.Application
+import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
@@ -23,22 +24,15 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
 
     private val repository: ExpenseRepository
     val allExpenses: LiveData<List<ExpenseEntity>>
+    
+    // [추가] 예산 저장을 위한 SharedPreferences
+    private val prefs = application.getSharedPreferences("budget_prefs", Context.MODE_PRIVATE)
 
     private val notificationHelper = NotificationHelper(application)
-
     private val _isLoading = MutableLiveData<Boolean>(false)
     val isLoading: LiveData<Boolean> get() = _isLoading
-
     private val _aiFeedback = MutableLiveData<String>()
     val aiFeedback: LiveData<String> get() = _aiFeedback
-
-    private val budgetLimits = mutableMapOf(
-        "식비" to 100000,
-        "교통비" to 50000,
-        "쇼핑" to 100000,
-        "문화" to 100000,
-        "기타" to 50000
-    )
 
     init {
         val expenseDao = AppDatabase.getDatabase(application).expenseDao()
@@ -46,18 +40,30 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
         allExpenses = repository.allExpenses.asLiveData()
     }
 
+    // --- [예산 관리 기능] ---
+
+    // 총 예산 저장/불러오기
+    fun setTotalBudget(amount: Int) {
+        prefs.edit().putInt("total_budget", amount).apply()
+    }
+
+    fun getTotalBudget(): Int {
+        return prefs.getInt("total_budget", 0) // 기본값 0
+    }
+
+    // 카테고리별 예산 저장/불러오기
     fun setBudgetLimit(category: String, limit: Int) {
-        budgetLimits[category] = limit
+        prefs.edit().putInt("budget_${category.trim()}", limit).apply()
     }
 
     fun getBudgetLimit(category: String): Int {
-        return budgetLimits[category] ?: 100000
+        return prefs.getInt("budget_${category.trim()}", 100000) // 기본값 100,000
     }
 
+    // -----------------------
+
     suspend fun fetchWeather(lat: Double, lon: Double): WeatherResponse? {
-        return withContext(Dispatchers.IO) {
-            repository.fetchWeather(lat, lon)
-        }
+        return withContext(Dispatchers.IO) { repository.fetchWeather(lat, lon) }
     }
 
     fun addExpenseFromNaturalLanguage(sentence: String, weatherStatus: String) {
@@ -69,15 +75,10 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
                 checkBudgetLimit(parsedExpense.category)
                 generateAiFeedback()
             }
-            withContext(Dispatchers.Main) {
-                _isLoading.value = false
-            }
+            withContext(Dispatchers.Main) { _isLoading.value = false }
         }
     }
 
-    /**
-     * 직접 입력 폼에서 ExpenseEntity를 바로 저장 (AI 파싱 없이)
-     */
     fun insertExpense(expense: ExpenseEntity) {
         viewModelScope.launch(Dispatchers.IO) {
             repository.insert(expense)
@@ -105,10 +106,10 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
         val expenses = allExpenses.value ?: repository.allExpenses.first()
         val currentMonthStr = SimpleDateFormat("yyyy-MM", Locale.getDefault()).format(Date())
         val categorySum = expenses.filter {
-            it.category == category && it.date.startsWith(currentMonthStr)
+            it.category.trim() == category.trim() && it.date.startsWith(currentMonthStr)
         }.sumOf { it.amount }
 
-        val limit = budgetLimits[category] ?: 100000
+        val limit = getBudgetLimit(category) // 새로 만든 메서드 사용
         if (categorySum > limit) {
             withContext(Dispatchers.Main) {
                 notificationHelper.sendBudgetAlert(category, categorySum, limit)
@@ -120,9 +121,7 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch(Dispatchers.IO) {
             val expenses = allExpenses.value ?: repository.allExpenses.first()
             if (expenses.isEmpty()) {
-                withContext(Dispatchers.Main) {
-                    _aiFeedback.value = "지출 내역을 기록하시면 소비 패턴을 분석해 드릴게요!"
-                }
+                withContext(Dispatchers.Main) { _aiFeedback.value = "지출 내역을 기록하시면 소비 패턴을 분석해 드릴게요!" }
                 return@launch
             }
 
@@ -130,7 +129,7 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
             val monthlyExpenses = expenses.filter { it.date.startsWith(currentMonthStr) }
 
             val totalSum = monthlyExpenses.sumOf { it.amount }
-            val catGroup = monthlyExpenses.groupBy { it.category }
+            val catGroup = monthlyExpenses.groupBy { it.category.trim() }
                 .mapValues { entry -> entry.value.sumOf { it.amount } }
 
             val weatherGroup = monthlyExpenses.groupBy { it.weather }
@@ -145,9 +144,7 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
             }.toString()
 
             val feedback = repository.getAiFeedback(summaryText)
-            withContext(Dispatchers.Main) {
-                _aiFeedback.value = feedback
-            }
+            withContext(Dispatchers.Main) { _aiFeedback.value = feedback }
         }
     }
 }

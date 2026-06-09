@@ -3,7 +3,8 @@ package com.mobile.egumoney.data
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "expense_items") // 👈 이 이름이 'expense_items' 여야 Dao의 Query 에러가 해결됩니다!
+// 🚨 괄호 안에 tableName = "expense_items"가 완벽하게 적혀있는지 꼭 보세요!
+@Entity(tableName = "expense_items") 
 data class ExpenseEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val date: String,

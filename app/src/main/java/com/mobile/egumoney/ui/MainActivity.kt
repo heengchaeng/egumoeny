@@ -17,6 +17,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.github.mikephil.charting.components.XAxis
 import com.github.mikephil.charting.data.*
@@ -62,6 +63,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen()
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
@@ -192,7 +194,7 @@ class MainActivity : AppCompatActivity() {
         // 2. 총 남은 금액 표시 (초과 시 금액만 파스텔 레드, 남으면 파스텔 블루)
         spannableBuilder.append("총 남은 금액: ")
         val remainingAmountStart = spannableBuilder.length
-        spannableBuilder.append("${dec.format(remaining)}원\n")
+        spannableBuilder.append("${dec.format(remaining.toLong())}원\n")
         
         val statusColor = if (remaining < 0) {
             ContextCompat.getColor(this, R.color.pastel_red)
@@ -229,7 +231,7 @@ class MainActivity : AppCompatActivity() {
             val catAmountStart = spannableBuilder.length
             
             if (catRemaining < 0) {
-                spannableBuilder.append("초과 ${dec.format(Math.abs(catRemaining))}원 🚨\n")
+                spannableBuilder.append("초과 ${dec.format(Math.abs(catRemaining.toLong()))}원 🚨\n")
                 spannableBuilder.setSpan(
                     ForegroundColorSpan(ContextCompat.getColor(this, R.color.pastel_red)),
                     catAmountStart,
@@ -237,7 +239,7 @@ class MainActivity : AppCompatActivity() {
                     Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
                 )
             } else {
-                spannableBuilder.append("남음 ${dec.format(catRemaining)}원\n")
+                spannableBuilder.append("남음 ${dec.format(catRemaining.toLong())}원\n")
                 spannableBuilder.setSpan(
                     ForegroundColorSpan(ContextCompat.getColor(this, R.color.pastel_blue)),
                     catAmountStart,
@@ -357,8 +359,8 @@ class MainActivity : AppCompatActivity() {
             .setPositiveButton("저장") { _, _ ->
                 val total = input.text.toString().replace(",", "").toIntOrNull() ?: 0
                 viewModel.setTotalBudget(total)
-                Toast.makeText(this, "총 예산 ${dec.format(total)}원 설정 완료", Toast.LENGTH_SHORT).show()
-                viewModel.allExpenses.value?.let { updateBudgetStatus(it) }
+                Toast.makeText(this, "총 예산 ${dec.format(total.toLong())}원 설정 완료", Toast.LENGTH_SHORT).show()
+                viewModel.allExpenses.value?.let { expenses -> updateBudgetStatus(expenses) }
             }.setNegativeButton("취소", null).show()
     }
 
@@ -400,7 +402,7 @@ class MainActivity : AppCompatActivity() {
             viewModel.setBudgetLimit(cat, amount)
             dialog.dismiss()
             Toast.makeText(this, "[$cat] 예산 수정 완료", Toast.LENGTH_SHORT).show()
-            viewModel.allExpenses.value?.let { updateBudgetStatus(it) }
+            viewModel.allExpenses.value?.let { expenses -> updateBudgetStatus(expenses) }
         }
         dialog.show()
     }

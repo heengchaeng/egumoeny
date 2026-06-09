@@ -18,6 +18,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
@@ -132,26 +133,58 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch(Dispatchers.IO) {
             val expenses = allExpenses.value ?: repository.allExpenses.first()
             if (expenses.isEmpty()) {
-                withContext(Dispatchers.Main) { _aiFeedback.value = "지출 내역을 기록하시면 소비 패턴을 분석해 드릴게요!" }
+                withContext(Dispatchers.Main) { _aiFeedback.value = "지출 내역을 기록하시면 뱅크샐러드보다 날카롭게 분석해 드릴게요!" }
                 return@launch
             }
 
+            val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
             val currentMonthStr = SimpleDateFormat("yyyy-MM", Locale.getDefault()).format(Date())
-            val monthlyExpenses = expenses.filter { it.date.startsWith(currentMonthStr) }
+            val calendar = Calendar.getInstance()
+            val daysInMonth = calendar.getActualMaximum(Calendar.DAY_OF_MONTH)
+            val currentDay = calendar.get(Calendar.DAY_OF_MONTH)
+            val daysLeft = daysInMonth - currentDay + 1
 
+            // 이번 달 지출 (오늘까지)
+            val monthlyExpenses = expenses.filter { it.date.startsWith(currentMonthStr) }
             val totalSum = monthlyExpenses.sumOf { it.amount }
+
+            // 저번 달 이맘때(오늘 날짜까지) 지출 계산
+            val lastMonthCal = Calendar.getInstance().apply { add(Calendar.MONTH, -1) }
+            val lastMonthStr = SimpleDateFormat("yyyy-MM", Locale.getDefault()).format(lastMonthCal.time)
+            val lastMonthExpensesUntilToday = expenses.filter { 
+                it.date.startsWith(lastMonthStr) && 
+                it.date.substringAfterLast("-").toInt() <= currentDay 
+            }
+            val lastMonthTotalUntilToday = lastMonthExpensesUntilToday.sumOf { it.amount }
+            
+            // 뱅크샐러드 스타일 추가 지표 계산
+            val totalBudget = getTotalBudget()
+            val remainingBudget = if (totalBudget > 0) totalBudget - totalSum else 0
+            val dailyRecommended = if (daysLeft > 0) remainingBudget / daysLeft else 0
+            
             val catGroup = monthlyExpenses.groupBy { it.category.trim() }
                 .mapValues { entry -> entry.value.sumOf { it.amount } }
-
-            val weatherGroup = monthlyExpenses.groupBy { it.weather }
-                .mapValues { entry -> entry.value.sumOf { it.amount } }
+            
+            val mostSpentCategory = catGroup.maxByOrNull { it.value }?.key ?: "없음"
+            
+            // 무지출 일수 계산
+            val spentDays = monthlyExpenses.map { it.date }.distinct().size
+            val noSpendDays = currentDay - spentDays
 
             val dec = DecimalFormat("#,###")
             val summaryText = StringBuilder().apply {
-                append("이번 달 총 지출: ${dec.format(totalSum)}원\n")
-                append("카테고리별 지출:\n")
+                append("[지출 요약]\n")
+                append("- 이번 달 현재까지 총 지출: ${dec.format(totalSum)}원\n")
+                append("- 지난 달 이맘때까지 지출: ${dec.format(lastMonthTotalUntilToday)}원\n")
+                append("- 남은 예산: ${dec.format(remainingBudget)}원\n")
+                append("- 오늘부터 하루 권장 지출: ${dec.format(dailyRecommended)}원\n")
+                append("- 가장 많이 쓴 카테고리: $mostSpentCategory\n")
+                append("- 이번 달 무지출 일수: ${noSpendDays}일\n")
+                append("\n[카테고리별 상세]\n")
                 catGroup.forEach { (cat, sum) -> append("- $cat: ${dec.format(sum)}원\n") }
-                append("날씨별 지출 현황:\n")
+                append("\n[날씨별 지출]\n")
+                val weatherGroup = monthlyExpenses.groupBy { it.weather }
+                    .mapValues { it.value.sumOf { v -> v.amount } }
                 weatherGroup.forEach { (weather, sum) -> append("- $weather: ${dec.format(sum)}원\n") }
             }.toString()
 

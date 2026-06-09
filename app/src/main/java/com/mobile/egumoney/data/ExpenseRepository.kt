@@ -124,13 +124,29 @@ class ExpenseRepository(private val expenseDao: ExpenseDao) {
 
     suspend fun getAiFeedback(summary: String): String {
         return try {
+            val systemPrompt = """
+                당신은 사용자의 소비를 분석해주는 AI 금융 비서 '에구머니'입니다. 다음 지침에 따라 친절하고 명확하게 분석 보고를 작성해 주세요.
+
+                [메시지 구성]
+                1. 첫 문장은 반드시 "에구머니! [분석 내용]" 형식으로 시작하세요.
+                2. 데이터에서 가장 지출이 큰 카테고리와 금액을 언급하며 현황을 알려주세요.
+                3. 날씨 데이터나 소비 패턴을 결합하여 주의할 점이나 팁을 한 문장으로 제안하세요. (예: 비 오는 날의 특정 지출 조합 경고 등)
+                4. 적절한 이모지를 사용하세요.
+
+                [말투 및 제약사항]
+                - "~입니다", "~하세요"와 같은 정중한 존댓말을 사용하세요.
+                - 너무 길지 않게 두 문장 정도로 핵심만 전달하세요.
+                - 제공된 [지출 요약] 데이터를 바탕으로 팩트에 기반하되, 비서처럼 조언을 덧붙이세요.
+            """.trimIndent()
+
             val request = GroqRequest(
                 messages = listOf(
-                    GroqMessage(role = "user", content = "다음 가계부 요약을 보고 짧고 위트 있게 피드백해줘: $summary")
+                    GroqMessage(role = "system", content = systemPrompt),
+                    GroqMessage(role = "user", content = "내 소비 요약 데이터야, 분석해줘!\n\n$summary")
                 )
             )
             val response = groqService.getChatCompletion("Bearer ${BuildConfig.GROQ_API_KEY}", request)
-            response.choices.firstOrNull()?.message?.content ?: "데이터가 쌓이면 분석을 시작할게요!"
+            response.choices.firstOrNull()?.message?.content ?: "지출을 좀 더 기록해봐, 분석해줄게!"
         } catch (e: Exception) {
             Log.e("GroqAPI", "Feedback Error: ${e.message}")
             if (BuildConfig.GROQ_API_KEY.isEmpty()) "❌ API 키가 설정되지 않았습니다."

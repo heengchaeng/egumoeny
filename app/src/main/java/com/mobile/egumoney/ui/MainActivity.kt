@@ -7,9 +7,8 @@ import android.content.pm.PackageManager
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
-import android.text.Editable
-import android.text.InputType
-import android.text.TextWatcher
+import android.text.*
+import android.text.style.ForegroundColorSpan
 import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.EditText
@@ -185,35 +184,78 @@ class MainActivity : AppCompatActivity() {
         val remaining = totalBudget - totalSpent
         val dec = DecimalFormat("#,###")
 
-        val statusBuilder = StringBuilder()
-        statusBuilder.append("이번 달 총 예산: ${dec.format(totalBudget)}원\n")
-        statusBuilder.append("총 남은 금액: ${dec.format(remaining)}원\n")
-        statusBuilder.append("\n[카테고리별 남은 예산]\n")
+        val spannableBuilder = SpannableStringBuilder()
+        
+        // 1. 총 예산 표시
+        spannableBuilder.append("이번 달 총 예산: ${dec.format(totalBudget)}원\n")
+        
+        // 2. 총 남은 금액 표시 (초과 시 금액만 파스텔 레드, 남으면 파스텔 블루)
+        spannableBuilder.append("총 남은 금액: ")
+        val remainingAmountStart = spannableBuilder.length
+        spannableBuilder.append("${dec.format(remaining)}원\n")
+        
+        val statusColor = if (remaining < 0) {
+            ContextCompat.getColor(this, R.color.pastel_red)
+        } else {
+            ContextCompat.getColor(this, R.color.pastel_blue)
+        }
+        
+        spannableBuilder.setSpan(
+            ForegroundColorSpan(statusColor),
+            remainingAmountStart,
+            spannableBuilder.length - 1,
+            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+        )
+        
+        spannableBuilder.append("\n[카테고리별 남은 예산]\n")
 
         val categories = arrayOf("식비", "교통비", "쇼핑", "문화", "투자", "기타")
+        val categoryEmojis = mapOf(
+            "식비" to "🍱",
+            "교통비" to "🚌",
+            "쇼핑" to "🛍️",
+            "문화" to "🎬",
+            "투자" to "📈",
+            "기타" to "💾"
+        )
+
         for (cat in categories) {
+            val emoji = categoryEmojis[cat] ?: "💰"
             val catLimit = viewModel.getBudgetLimit(cat)
             val catSpent = monthlyExpenses.filter { it.category.trim() == cat }.sumOf { it.amount }
             val catRemaining = catLimit - catSpent
             
-            statusBuilder.append("- $cat: ")
+            spannableBuilder.append("$emoji $cat: ")
+            val catAmountStart = spannableBuilder.length
+            
             if (catRemaining < 0) {
-                statusBuilder.append("초과 ${dec.format(Math.abs(catRemaining))}원 🚨\n")
+                spannableBuilder.append("초과 ${dec.format(Math.abs(catRemaining))}원 🚨\n")
+                spannableBuilder.setSpan(
+                    ForegroundColorSpan(ContextCompat.getColor(this, R.color.pastel_red)),
+                    catAmountStart,
+                    spannableBuilder.length - 1,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
             } else {
-                statusBuilder.append("남음 ${dec.format(catRemaining)}원\n")
+                spannableBuilder.append("남음 ${dec.format(catRemaining)}원\n")
+                spannableBuilder.setSpan(
+                    ForegroundColorSpan(ContextCompat.getColor(this, R.color.pastel_blue)),
+                    catAmountStart,
+                    spannableBuilder.length - 1,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
             }
         }
 
-        binding.tvBudgetStatus.text = statusBuilder.toString()
+        binding.tvBudgetStatus.text = spannableBuilder
+        binding.tvBudgetStatus.setTextColor(Color.BLACK) // 기본은 블랙, 초과 항목만 Span으로 레드
         
         if (totalBudget > 0 && remaining < 0) {
-            binding.tvBudgetStatus.setTextColor(Color.RED)
             if (!isBudgetExceededNotified) {
                 Toast.makeText(this, "🚨 총 예산을 초과했습니다!", Toast.LENGTH_LONG).show()
                 isBudgetExceededNotified = true
             }
         } else {
-            binding.tvBudgetStatus.setTextColor(Color.BLACK)
             isBudgetExceededNotified = false
         }
     }
@@ -415,7 +457,7 @@ class MainActivity : AppCompatActivity() {
                 CoroutineScope(Dispatchers.Main).launch {
                     val weatherResp = viewModel.fetchWeather(location.latitude, location.longitude)
                     if (weatherResp != null) {
-                        currentWeatherStatus = "${weatherResp.weatherList[0].description} (${weatherResp.mainInfo.temp}℃)"
+                        currentWeatherStatus = weatherResp.weatherList[0].description
                         binding.tvWeatherStatus.text = "📍 날씨: $currentWeatherStatus"
                     }
                 }

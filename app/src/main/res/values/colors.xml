@@ -25,6 +25,10 @@
     <color name="cat_etc">#B5EAD7</color>        <!-- 파스텔 민트/그린 -->
     <color name="cat_investment">#FFD700</color>
 
+    <!-- 예산 상태 파스텔 색상 -->
+    <color name="pastel_red">#FF8A8A</color>     <!-- 눈이 편한 파스텔 레드 -->
+    <color name="pastel_blue">#8AB6D6</color>    <!-- 눈이 편한 파스텔 블루 -->
+
     <color name="border_color">#E5E7EB</color>
     <color name="warning_red">#DC2626</color>
 </resources>

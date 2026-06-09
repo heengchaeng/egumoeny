@@ -5,9 +5,14 @@ import android.annotation.SuppressLint
 import android.app.AlertDialog
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.os.Build
 import android.os.Bundle
+import android.text.Editable
+import android.text.InputType
+import android.text.TextWatcher
 import android.view.View
 import android.widget.ArrayAdapter
+import android.widget.EditText
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
@@ -49,7 +54,11 @@ class MainActivity : AppCompatActivity() {
         ) {
             loadCurrentWeather()
         } else {
-            binding.tvWeatherStatus.text = "📍 위치 권한 거부됨 (날씨: ☀️ 맑음 고정)"
+            binding.tvWeatherStatus.text = "📍 위치 권한 거부됨"
+        }
+        
+        if (permissions[Manifest.permission.POST_NOTIFICATIONS] == false) {
+            Toast.makeText(this, "알림 권한이 거부되어 예산 초과 알림을 받을 수 없습니다.", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -63,7 +72,8 @@ class MainActivity : AppCompatActivity() {
         setupRecyclerView()
         setupListeners()
         observeViewModel()
-        checkLocationPermission()
+        checkPermissions()
+        setupAmountTextWatcher() // 실시간 쉼표 추가
 
         switchTab(0)
         viewModel.generateAiFeedback()
@@ -84,6 +94,31 @@ class MainActivity : AppCompatActivity() {
         binding.spinnerManualCategory.adapter = spinnerAdapter
     }
 
+    // 금액 입력 시 실시간으로 쉼표를 찍어주는 함수 (커서 위치 유지 기능 추가)
+    private fun setupAmountTextWatcher() {
+        binding.etManualAmount.addTextChangedListener(object : TextWatcher {
+            private var current = ""
+            override fun afterTextChanged(s: Editable?) {
+                if (s.toString() != current) {
+                    binding.etManualAmount.removeTextChangedListener(this)
+                    val clean = s.toString().replace(",", "")
+                    if (clean.isNotEmpty()) {
+                        val formatted = DecimalFormat("#,###").format(clean.toDouble())
+                        current = formatted
+                        binding.etManualAmount.setText(formatted)
+                        binding.etManualAmount.setSelection(formatted.length)
+                    } else {
+                        current = ""
+                        binding.etManualAmount.setText("")
+                    }
+                    binding.etManualAmount.addTextChangedListener(this)
+                }
+            }
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+        })
+    }
+
     private fun setupListeners() {
         binding.btnRegister.setOnClickListener {
             val sentence = binding.etExpenseInput.text.toString().trim()
@@ -98,26 +133,30 @@ class MainActivity : AppCompatActivity() {
 
         binding.btnManualRegister.setOnClickListener {
             val title = binding.etManualTitle.text.toString().trim()
-            val amountStr = binding.etManualAmount.text.toString().trim()
-            val category = binding.spinnerManualCategory.selectedItem?.toString() ?: "기타"
+            val amountStr = binding.etManualAmount.text.toString().trim().replace(",", "")
+            val category = binding.spinnerManualCategory.selectedItem?.toString()?.trim() ?: "기타"
 
             if (title.isNotEmpty() && amountStr.isNotEmpty()) {
-                val amount = amountStr.toIntOrNull() ?: 0
-                val dateStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
                 val expense = ExpenseEntity(
-                    date = dateStr,
+                    date = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date()),
                     title = title,
-                    amount = amount,
+                    amount = amountStr.toIntOrNull() ?: 0,
                     category = category,
                     weather = currentWeatherStatus
                 )
                 viewModel.insertExpense(expense)
                 binding.etManualTitle.setText("")
                 binding.etManualAmount.setText("")
-                Toast.makeText(this, "✅ '$title' 저장 완료!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "✅ 저장 완료!", Toast.LENGTH_SHORT).show()
                 switchTab(2)
-            } else {
-                Toast.makeText(this, "항목명과 금액을 모두 입력해 주세요.", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        // 맥북 키보드 포커스 문제 방지를 위해 클릭 시 강제 포커스 요청 추가
+        binding.etManualTitle.setOnFocusChangeListener { v, hasFocus ->
+            if (hasFocus) {
+                val imm = getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+                imm.showSoftInput(v, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
             }
         }
 
@@ -134,106 +173,194 @@ class MainActivity : AppCompatActivity() {
             updateTotalExpenseText(expenses)
             updateBudgetStatus(expenses)
         }
-        viewModel.isLoading.observe(this) { isLoading ->
-            binding.layoutLoading.visibility = if (isLoading) View.VISIBLE else View.GONE
-        }
-        viewModel.aiFeedback.observe(this) { feedback ->
-            binding.tvAiFeedback.text = feedback
-        }
-    }
-
-    // [수정된 차트 업데이트 함수]
-    private fun updateCharts(expenses: List<ExpenseEntity>) {
-        val currentMonthStr = SimpleDateFormat("yyyy-MM", Locale.getDefault()).format(Date())
-        val monthlyExpenses = expenses.filter { it.date.startsWith(currentMonthStr) }
-
-        // 1. 차트 잔상 제거
-        binding.pieChart.clear()
-        binding.barChart.clear()
-
-        // 2. 데이터 그룹화
-        val categoryGroups = monthlyExpenses.groupBy { it.category }
-            .mapValues { entry -> entry.value.sumOf { it.amount } }
-
-        if (categoryGroups.isEmpty()) return
-
-        // 3. 파이 차트 데이터 세팅
-        val pieEntries = categoryGroups.map { PieEntry(it.value.toFloat(), it.key) }
-        val pieDataSet = PieDataSet(pieEntries, "")
-        
-        // 4. 색상 매핑 (순서대로)
-  // 수정된 색상 매핑 부분
-// 수정된 색상 매핑 부분
-        pieDataSet.colors = pieEntries.map {
-    when (it.label.trim()) {
-        "식비" -> ContextCompat.getColor(this, R.color.cat_food)
-        "교통비" -> ContextCompat.getColor(this, R.color.cat_transport)
-        "쇼핑" -> ContextCompat.getColor(this, R.color.cat_shopping)
-        "문화" -> ContextCompat.getColor(this, R.color.cat_culture)
-        "투자" -> ContextCompat.getColor(this, R.color.cat_investment) // 추가함
-        "기타" -> ContextCompat.getColor(this, R.color.cat_etc)        // 명시적으로 추가함
-        else -> ContextCompat.getColor(this, R.color.cat_etc)         // 정의되지 않은 카테고리는 기본적으로 기타 색상
-    }
-}
-        pieDataSet.valueTextSize = 13f
-
-        binding.pieChart.apply {
-            data = PieData(pieDataSet)
-            description.isEnabled = false
-            centerText = "이번 달 소비"
-            marker = null // 마커 제거
-            invalidate()
-        }
-
-        // 바 차트 로직
-        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-        val dateList = ArrayList<String>()
-        val barEntries = ArrayList<BarEntry>()
-        val calendar = Calendar.getInstance()
-        val currentDayOfYear = calendar.get(Calendar.DAY_OF_YEAR)
-
-        for (i in 0..6) {
-            calendar.set(Calendar.DAY_OF_YEAR, currentDayOfYear - (6 - i))
-            val dateStr = sdf.format(calendar.time)
-            dateList.add(dateStr.substring(5))
-            val dailySum = expenses.filter { it.date == dateStr }.sumOf { it.amount }
-            barEntries.add(BarEntry(i.toFloat(), dailySum.toFloat()))
-        }
-
-        val barDataSet = BarDataSet(barEntries, "지출액").apply {
-            color = ContextCompat.getColor(this@MainActivity, R.color.cat_culture)
-        }
-
-        binding.barChart.apply {
-            data = BarData(barDataSet)
-            description.isEnabled = false
-            xAxis.valueFormatter = IndexAxisValueFormatter(dateList)
-            xAxis.position = XAxis.XAxisPosition.BOTTOM
-            marker = null
-            invalidate()
-        }
+        viewModel.aiFeedback.observe(this) { binding.tvAiFeedback.text = it }
     }
 
     private fun updateBudgetStatus(expenses: List<ExpenseEntity>) {
         val currentMonthStr = SimpleDateFormat("yyyy-MM", Locale.getDefault()).format(Date())
         val monthlyExpenses = expenses.filter { it.date.startsWith(currentMonthStr) }
         val totalSpent = monthlyExpenses.sumOf { it.amount }
-        val categories = arrayOf("식비", "교통비", "쇼핑", "문화", "투자", "기타")
-        val totalBudget = categories.sumOf { viewModel.getBudgetLimit(it) }
+        
+        val totalBudget = viewModel.getTotalBudget()
         val remaining = totalBudget - totalSpent
         val dec = DecimalFormat("#,###")
 
-        binding.tvBudgetStatus.text = "이번 달 예산: ${dec.format(totalBudget)}원 / 잔액: ${dec.format(remaining)}원"
-        if (remaining < 0) {
+        val statusBuilder = StringBuilder()
+        statusBuilder.append("이번 달 총 예산: ${dec.format(totalBudget)}원\n")
+        statusBuilder.append("총 남은 금액: ${dec.format(remaining)}원\n")
+        statusBuilder.append("\n[카테고리별 남은 예산]\n")
+
+        val categories = arrayOf("식비", "교통비", "쇼핑", "문화", "투자", "기타")
+        for (cat in categories) {
+            val catLimit = viewModel.getBudgetLimit(cat)
+            val catSpent = monthlyExpenses.filter { it.category.trim() == cat }.sumOf { it.amount }
+            val catRemaining = catLimit - catSpent
+            
+            statusBuilder.append("- $cat: ")
+            if (catRemaining < 0) {
+                statusBuilder.append("초과 ${dec.format(Math.abs(catRemaining))}원 🚨\n")
+            } else {
+                statusBuilder.append("남음 ${dec.format(catRemaining)}원\n")
+            }
+        }
+
+        binding.tvBudgetStatus.text = statusBuilder.toString()
+        
+        if (totalBudget > 0 && remaining < 0) {
             binding.tvBudgetStatus.setTextColor(Color.RED)
             if (!isBudgetExceededNotified) {
-                Toast.makeText(this, "🚨 예산을 ${dec.format(Math.abs(remaining))}원 초과했습니다!", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "🚨 총 예산을 초과했습니다!", Toast.LENGTH_LONG).show()
                 isBudgetExceededNotified = true
             }
         } else {
             binding.tvBudgetStatus.setTextColor(Color.BLACK)
             isBudgetExceededNotified = false
         }
+    }
+
+    // 🚨 핵심 수정: 차트 색상을 고정 컬러 코드로 다양하게 분배했습니다.
+    private fun updateCharts(expenses: List<ExpenseEntity>) {
+        val currentMonthStr = SimpleDateFormat("yyyy-MM", Locale.getDefault()).format(Date())
+        val monthlyExpenses = expenses.filter { it.date.startsWith(currentMonthStr) }
+
+        binding.pieChart.clear()
+        binding.barChart.clear()
+
+        val categoryGroups = monthlyExpenses.groupBy { it.category.trim() }
+            .mapValues { entry -> entry.value.sumOf { it.amount } }
+
+        if (categoryGroups.isEmpty()) return
+
+        val pieEntries = categoryGroups.map { PieEntry(it.value.toFloat(), it.key) }
+        val pieDataSet = PieDataSet(pieEntries, "")
+        
+        // 🎨 리스트와 동일한 리소스 색상을 차트에도 적용
+        pieDataSet.colors = pieEntries.map {
+            when (it.label) {
+                "식비" -> ContextCompat.getColor(this, R.color.cat_food)
+                "교통비" -> ContextCompat.getColor(this, R.color.cat_transport)
+                "쇼핑" -> ContextCompat.getColor(this, R.color.cat_shopping)
+                "문화" -> ContextCompat.getColor(this, R.color.cat_culture)
+                "투자" -> ContextCompat.getColor(this, R.color.cat_investment)
+                else -> ContextCompat.getColor(this, R.color.cat_etc)
+            }
+        }
+        pieDataSet.valueTextSize = 12f
+        pieDataSet.valueTextColor = Color.BLACK
+        
+        binding.pieChart.data = PieData(pieDataSet)
+        binding.pieChart.animateY(800)
+        binding.pieChart.invalidate()
+
+        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        val barEntries = ArrayList<BarEntry>()
+        val calendar = Calendar.getInstance()
+        for (i in 0..6) {
+            calendar.set(Calendar.DAY_OF_YEAR, Calendar.getInstance().get(Calendar.DAY_OF_YEAR) - (6 - i))
+            val dateStr = sdf.format(calendar.time)
+            barEntries.add(BarEntry(i.toFloat(), expenses.filter { it.date == dateStr }.sumOf { it.amount }.toFloat()))
+        }
+        val barDataSet = BarDataSet(barEntries, "일별 지출액")
+        barDataSet.color = Color.parseColor("#A7CBD9")
+        
+        binding.barChart.data = BarData(barDataSet)
+        binding.barChart.animateY(800)
+        binding.barChart.invalidate()
+    }
+
+    private fun showBudgetSettingsDialog() {
+        val options = arrayOf("총 예산 설정", "카테고리별 예산 분배")
+        AlertDialog.Builder(this)
+            .setTitle("예산 관리")
+            .setItems(options) { _, which ->
+                if (which == 0) showTotalBudgetDialog()
+                else showCategoryBudgetDialog()
+            }.show()
+    }
+
+    private fun showTotalBudgetDialog() {
+        val dec = DecimalFormat("#,###")
+        val input = EditText(this).apply { 
+            inputType = InputType.TYPE_CLASS_NUMBER 
+            setText(dec.format(viewModel.getTotalBudget()))
+            setSelection(text.length)
+        }
+        
+        // 총 예산 설정 창에도 쉼표 기능 추가
+        input.addTextChangedListener(object : TextWatcher {
+            private var current = ""
+            override fun afterTextChanged(s: Editable?) {
+                if (s.toString() != current) {
+                    input.removeTextChangedListener(this)
+                    val clean = s.toString().replace(",", "")
+                    if (clean.isNotEmpty()) {
+                        val formatted = dec.format(clean.toDouble())
+                        current = formatted
+                        input.setText(formatted)
+                        input.setSelection(formatted.length)
+                    } else {
+                        current = ""
+                        input.setText("")
+                    }
+                    input.addTextChangedListener(this)
+                }
+            }
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+        })
+
+        AlertDialog.Builder(this)
+            .setTitle("이번 달 총 예산(원)")
+            .setView(input)
+            .setPositiveButton("저장") { _, _ ->
+                val total = input.text.toString().replace(",", "").toIntOrNull() ?: 0
+                viewModel.setTotalBudget(total)
+                Toast.makeText(this, "총 예산 ${dec.format(total)}원 설정 완료", Toast.LENGTH_SHORT).show()
+                viewModel.allExpenses.value?.let { updateBudgetStatus(it) }
+            }.setNegativeButton("취소", null).show()
+    }
+
+    private fun showCategoryBudgetDialog() {
+        val dec = DecimalFormat("#,###")
+        val dialogBinding = DialogEditExpenseBinding.inflate(layoutInflater)
+        val categories = arrayOf("식비", "교통비", "쇼핑", "문화", "투자", "기타")
+        dialogBinding.spinnerEditCategory.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, categories)
+        dialogBinding.etEditTitle.visibility = View.GONE
+        dialogBinding.etEditAmount.hint = "카테고리별 예산(원)"
+
+        // 다이얼로그 안의 입력창에도 쉼표 기능 및 커서 유지 추가
+        dialogBinding.etEditAmount.addTextChangedListener(object : TextWatcher {
+            private var current = ""
+            override fun afterTextChanged(s: Editable?) {
+                if (s.toString() != current) {
+                    dialogBinding.etEditAmount.removeTextChangedListener(this)
+                    val clean = s.toString().replace(",", "")
+                    if (clean.isNotEmpty()) {
+                        val formatted = dec.format(clean.toDouble())
+                        current = formatted
+                        dialogBinding.etEditAmount.setText(formatted)
+                        dialogBinding.etEditAmount.setSelection(formatted.length)
+                    } else {
+                        current = ""
+                        dialogBinding.etEditAmount.setText("")
+                    }
+                    dialogBinding.etEditAmount.addTextChangedListener(this)
+                }
+            }
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+        })
+
+        val dialog = AlertDialog.Builder(this).setView(dialogBinding.root).create()
+        dialogBinding.btnEditSave.setOnClickListener {
+            val cat = dialogBinding.spinnerEditCategory.selectedItem.toString().trim()
+            val amount = dialogBinding.etEditAmount.text.toString().replace(",", "").toIntOrNull() ?: 0
+            viewModel.setBudgetLimit(cat, amount)
+            dialog.dismiss()
+            Toast.makeText(this, "[$cat] 예산 수정 완료", Toast.LENGTH_SHORT).show()
+            viewModel.allExpenses.value?.let { updateBudgetStatus(it) }
+        }
+        dialog.show()
     }
 
     private fun updateTotalExpenseText(expenses: List<ExpenseEntity>) {
@@ -246,13 +373,38 @@ class MainActivity : AppCompatActivity() {
         binding.containerDashboard.visibility = if (tabIndex == 0) View.VISIBLE else View.GONE
         binding.containerAdd.visibility = if (tabIndex == 1) View.VISIBLE else View.GONE
         binding.containerHistory.visibility = if (tabIndex == 2) View.VISIBLE else View.GONE
+
+        if (tabIndex == 1) {
+            // 💡 맥북 에뮬레이터 버그 해결: 200ms 지연 후 포커스 요청 (애니메이션 완료 대기)
+            binding.etExpenseInput.postDelayed({
+                binding.etExpenseInput.requestFocus()
+                val imm = getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+                imm.showSoftInput(binding.etExpenseInput, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+                
+                // 터치해도 키보드가 안 뜨는 경우를 위해 클릭 이벤트 강제 발생
+                binding.etExpenseInput.dispatchTouchEvent(android.view.MotionEvent.obtain(android.os.SystemClock.uptimeMillis(), android.os.SystemClock.uptimeMillis(), android.view.MotionEvent.ACTION_DOWN, 0f, 0f, 0))
+                binding.etExpenseInput.dispatchTouchEvent(android.view.MotionEvent.obtain(android.os.SystemClock.uptimeMillis(), android.os.SystemClock.uptimeMillis(), android.view.MotionEvent.ACTION_UP, 0f, 0f, 0))
+            }, 200)
+        }
     }
 
-    private fun checkLocationPermission() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+    private fun checkPermissions() {
+        val permissions = mutableListOf(
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.ACCESS_COARSE_LOCATION
+        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissions.add(Manifest.permission.POST_NOTIFICATIONS)
+        }
+
+        val needsRequest = permissions.filter {
+            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
+        }
+
+        if (needsRequest.isEmpty()) {
             loadCurrentWeather()
         } else {
-            requestPermissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+            requestPermissionLauncher.launch(needsRequest.toTypedArray())
         }
     }
 
@@ -272,85 +424,56 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showEditDialog(expense: ExpenseEntity) {
+        val dec = DecimalFormat("#,###")
         val dialogBinding = DialogEditExpenseBinding.inflate(layoutInflater)
-        val builder = AlertDialog.Builder(this)
-            .setView(dialogBinding.root)
-
-        val categories = arrayOf("식비", "교통비", "쇼핑", "문화", "기타")
-        val spinnerAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, categories)
-        dialogBinding.spinnerEditCategory.adapter = spinnerAdapter
-
-        val catIndex = categories.indexOf(expense.category).coerceAtLeast(0)
-        dialogBinding.spinnerEditCategory.setSelection(catIndex)
+        val categories = arrayOf("식비", "교통비", "쇼핑", "문화", "투자", "기타")
+        dialogBinding.spinnerEditCategory.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, categories)
+        dialogBinding.spinnerEditCategory.setSelection(categories.indexOf(expense.category.trim()).coerceAtLeast(0))
         dialogBinding.etEditTitle.setText(expense.title)
-        dialogBinding.etEditAmount.setText(expense.amount.toString())
+        dialogBinding.etEditAmount.setText(dec.format(expense.amount))
 
-        val alertDialog = builder.create()
-
-        dialogBinding.btnEditCancel.setOnClickListener { alertDialog.dismiss() }
-
-        dialogBinding.btnEditSave.setOnClickListener {
-            val title = dialogBinding.etEditTitle.text.toString().trim()
-            val amountStr = dialogBinding.etEditAmount.text.toString().trim()
-            val category = dialogBinding.spinnerEditCategory.selectedItem.toString()
-
-            if (title.isNotEmpty() && amountStr.isNotEmpty()) {
-                val amount = amountStr.toIntOrNull() ?: 0
-                val updatedExpense = expense.copy(title = title, amount = amount, category = category)
-                viewModel.updateExpense(updatedExpense)
-                alertDialog.dismiss()
-                Toast.makeText(this, "수정되었습니다.", Toast.LENGTH_SHORT).show()
-            } else {
-                Toast.makeText(this, "모든 필드를 입력해 주세요.", Toast.LENGTH_SHORT).show()
+        // 수정 다이얼로그 금액 입력창에도 쉼표 및 커서 유지 적용
+        dialogBinding.etEditAmount.addTextChangedListener(object : TextWatcher {
+            private var current = ""
+            override fun afterTextChanged(s: Editable?) {
+                if (s.toString() != current) {
+                    dialogBinding.etEditAmount.removeTextChangedListener(this)
+                    val clean = s.toString().replace(",", "")
+                    if (clean.isNotEmpty()) {
+                        val formatted = dec.format(clean.toDouble())
+                        current = formatted
+                        dialogBinding.etEditAmount.setText(formatted)
+                        dialogBinding.etEditAmount.setSelection(formatted.length)
+                    } else {
+                        current = ""
+                        dialogBinding.etEditAmount.setText("")
+                    }
+                    dialogBinding.etEditAmount.addTextChangedListener(this)
+                }
             }
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+        })
+
+        val dialog = AlertDialog.Builder(this).setView(dialogBinding.root).create()
+        dialogBinding.btnEditSave.setOnClickListener {
+            val updated = expense.copy(
+                title = dialogBinding.etEditTitle.text.toString().trim(),
+                amount = dialogBinding.etEditAmount.text.toString().replace(",", "").toIntOrNull() ?: 0,
+                category = dialogBinding.spinnerEditCategory.selectedItem.toString().trim()
+            )
+            viewModel.updateExpense(updated)
+            dialog.dismiss()
         }
-        alertDialog.show()
+        dialog.show()
     }
 
     private fun showDeleteConfirmDialog(expense: ExpenseEntity) {
         AlertDialog.Builder(this)
-            .setTitle("소비 내역 삭제")
-            .setMessage("'${expense.title}' 내역을 삭제하시겠습니까?")
-            .setPositiveButton("삭제") { _, _ ->
-                viewModel.deleteExpense(expense)
-                Toast.makeText(this, "삭제되었습니다.", Toast.LENGTH_SHORT).show()
-            }
+            .setTitle("삭제")
+            .setMessage("'${expense.title}' 내역을 삭제할까요?")
+            .setPositiveButton("삭제") { _, _ -> viewModel.deleteExpense(expense) }
             .setNegativeButton("취소", null)
             .show()
-    }
-
-    private fun showBudgetSettingsDialog() {
-        val categories = arrayOf("식비", "교통비", "쇼핑", "문화", "투자", "기타")
-        val dialogBinding = DialogEditExpenseBinding.inflate(layoutInflater)
-        
-        dialogBinding.spinnerEditCategory.visibility = View.VISIBLE
-        dialogBinding.etEditTitle.visibility = View.GONE 
-        dialogBinding.etEditAmount.hint = "한 달 예산 금액(원)"
-        
-        val spinnerAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, categories)
-        dialogBinding.spinnerEditCategory.adapter = spinnerAdapter
-        
-        val currentLimit = viewModel.getBudgetLimit(categories[0])
-        dialogBinding.etEditAmount.setText(currentLimit.toString())
-        
-        val builder = AlertDialog.Builder(this).setView(dialogBinding.root)
-        val alertDialog = builder.create()
-        
-        dialogBinding.btnEditCancel.setOnClickListener { alertDialog.dismiss() }
-        
-        dialogBinding.btnEditSave.setOnClickListener {
-            val limitStr = dialogBinding.etEditAmount.text.toString().trim()
-            val category = dialogBinding.spinnerEditCategory.selectedItem.toString()
-            
-            if (limitStr.isNotEmpty()) {
-                val limit = limitStr.toIntOrNull() ?: 0
-                viewModel.setBudgetLimit(category, limit)
-                alertDialog.dismiss()
-                Toast.makeText(this, "[$category] 예산이 ${limit}원으로 설정되었습니다.", Toast.LENGTH_SHORT).show()
-            } else {
-                Toast.makeText(this, "예산을 입력해 주세요.", Toast.LENGTH_SHORT).show()
-            }
-        }
-        alertDialog.show()
     }
 }

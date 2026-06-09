@@ -5,13 +5,13 @@ import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
 import androidx.core.app.NotificationCompat
+import java.text.DecimalFormat
 
 class NotificationHelper(private val context: Context) {
 
     companion object {
         private const val CHANNEL_ID = "budget_alert_channel"
         private const val CHANNEL_NAME = "예산 초과 알림"
-        private const val NOTIFICATION_ID = 1001
     }
 
     init {
@@ -33,14 +33,21 @@ class NotificationHelper(private val context: Context) {
     }
 
     fun sendBudgetAlert(category: String, exceededAmount: Int, limit: Int) {
+        val dec = DecimalFormat("#,###")
+        
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_alert)
             .setContentTitle("⚠️ 에구머니나! 예산 초과 경고")
-            .setContentText("[$category] 소비가 설정 예산(${limit}원)을 초과했습니다! (누적: ${exceededAmount}원)")
+            // 금액 보기 편하게 콤마(#,###) 포맷팅 추가
+            .setContentText("[$category] 소비가 설정 예산(${dec.format(limit)}원)을 초과했습니다! (현재 지출: ${dec.format(exceededAmount)}원)")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
 
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        manager.notify(NOTIFICATION_ID, builder.build())
+        
+        // 🚨 핵심 수정: 고정된 ID 대신 카테고리 문자열의 hashCode()를 ID로 사용하여
+        // 식비, 교통비 등 각 카테고리별 알림이 덮어씌워지지 않고 각각 따로 뜨도록 만듭니다.
+        val uniqueNotificationId = category.trim().hashCode()
+        manager.notify(uniqueNotificationId, builder.build())
     }
 }

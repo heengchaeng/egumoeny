@@ -16,6 +16,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -105,14 +106,24 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
     private suspend fun checkBudgetLimit(category: String) {
         val expenses = allExpenses.value ?: repository.allExpenses.first()
         val currentMonthStr = SimpleDateFormat("yyyy-MM", Locale.getDefault()).format(Date())
-        val categorySum = expenses.filter {
+        
+        // 해당 카테고리 이번 달 총 지출
+        val categoryExpenses = expenses.filter {
             it.category.trim() == category.trim() && it.date.startsWith(currentMonthStr)
-        }.sumOf { it.amount }
+        }
+        val totalSpent = categoryExpenses.sumOf { it.amount }
+        val limit = getBudgetLimit(category)
 
-        val limit = getBudgetLimit(category) // 새로 만든 메서드 사용
-        if (categorySum > limit) {
-            withContext(Dispatchers.Main) {
-                notificationHelper.sendBudgetAlert(category, categorySum, limit)
+        if (totalSpent > limit) {
+            // 이번 지출 항목이 추가되기 전의 합계 계산
+            val lastExpenseAmount = categoryExpenses.maxByOrNull { it.id }?.amount ?: 0
+            val previousSpent = totalSpent - lastExpenseAmount
+            
+            // "방금 전까지는 예산 안이었는데, 이번 지출로 처음 넘었을 때"만 알림
+            if (previousSpent <= limit) {
+                withContext(Dispatchers.Main) {
+                    notificationHelper.sendBudgetAlert(category, totalSpent, limit)
+                }
             }
         }
     }
@@ -135,12 +146,13 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
             val weatherGroup = monthlyExpenses.groupBy { it.weather }
                 .mapValues { entry -> entry.value.sumOf { it.amount } }
 
+            val dec = DecimalFormat("#,###")
             val summaryText = StringBuilder().apply {
-                append("이번 달 총 지출: ${totalSum}원\n")
+                append("이번 달 총 지출: ${dec.format(totalSum)}원\n")
                 append("카테고리별 지출:\n")
-                catGroup.forEach { (cat, sum) -> append("- $cat: ${sum}원\n") }
+                catGroup.forEach { (cat, sum) -> append("- $cat: ${dec.format(sum)}원\n") }
                 append("날씨별 지출 현황:\n")
-                weatherGroup.forEach { (weather, sum) -> append("- $weather: ${sum}원\n") }
+                weatherGroup.forEach { (weather, sum) -> append("- $weather: ${dec.format(sum)}원\n") }
             }.toString()
 
             val feedback = repository.getAiFeedback(summaryText)

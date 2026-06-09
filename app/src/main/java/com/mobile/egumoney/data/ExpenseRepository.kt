@@ -1,9 +1,11 @@
 package com.mobile.egumoney.data
 
-import com.google.ai.client.generativeai.GenerativeModel
+import android.util.Log
 import com.mobile.egumoney.BuildConfig
 import com.mobile.egumoney.model.WeatherResponse
 import kotlinx.coroutines.flow.Flow
+import okhttp3.OkHttpClient
+import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.text.SimpleDateFormat
@@ -14,10 +16,31 @@ class ExpenseRepository(private val expenseDao: ExpenseDao) {
 
     val allExpenses: Flow<List<ExpenseEntity>> = expenseDao.getAllExpenses()
 
-    private val generativeModel = GenerativeModel(
-        modelName = "gemini-1.5-flash", 
-        apiKey = BuildConfig.GEMINI_API_KEY
-    )
+    // 💡 API 키가 제대로 들어왔는지 로그로 확인 (보안상 앞자리만)
+    init {
+        val key = BuildConfig.GROQ_API_KEY
+        if (key.isEmpty()) {
+            Log.e("GroqAPI", "❌ API 키가 비어있습니다! local.properties를 확인하세요.")
+        } else {
+            Log.d("GroqAPI", "✅ API 키 로드됨: ${key.take(5)}***")
+        }
+    }
+
+    private val groqService: GroqService by lazy {
+        val logging = HttpLoggingInterceptor().apply {
+            level = HttpLoggingInterceptor.Level.BODY
+        }
+        val client = OkHttpClient.Builder()
+            .addInterceptor(logging)
+            .build()
+
+        Retrofit.Builder()
+            .baseUrl("https://api.groq.com/")
+            .addConverterFactory(GsonConverterFactory.create())
+            .client(client)
+            .build()
+            .create(GroqService::class.java)
+    }
 
     private val weatherService: WeatherService by lazy {
         Retrofit.Builder()
@@ -38,22 +61,19 @@ class ExpenseRepository(private val expenseDao: ExpenseDao) {
             val prompt = """
                 당신은 가계부 전문가입니다. 다음 문장에서 항목, 금액, 카테고리를 추출해 JSON으로만 답하세요.
                 문장: "$sentence"
-                
-                [카테고리 분류 규칙 - 반드시 이 중 하나만 선택]
-                - '식비': 모든 음식, 식당, 카페, 커피, 배달, 마트, 편의점, 술, 간식, 야식
-                - '교통비': 택시, 버스, 지하철, 주유, 주차, 기차, 하이패스, 비행기, 통행료
-                - '쇼핑': 옷, 신발, 화장품, 다이소, 백화점, 생필품, 가전, 가구, 안경, 렌즈
-                - '문화': 영화, 게임, 취미, 운동, 헬스, 책, 서점, 노래방, 여행, 숙박, 웹툰, 유튜브
-                - '투자': 주식, 코인, 저축, 적금, 금리, 보험, 이자, 세금
-                - '기타': 위 분류에 없는 모든 것
-                
+                [카테고리] 식비, 교통비, 쇼핑, 문화, 투자, 기타
                 구조: {"title": "항목명", "amount": 숫자, "category": "카테고리"}
             """.trimIndent()
 
-            val response = generativeModel.generateContent(prompt)
-            var jsonText = response.text?.trim() ?: ""
+            val request = GroqRequest(
+                messages = listOf(
+                    GroqMessage(role = "user", content = prompt)
+                )
+            )
             
-            // JSON 응답 정제 로직 (마크다운 제거 및 순수 JSON 추출)
+            val response = groqService.getChatCompletion("Bearer ${BuildConfig.GROQ_API_KEY}", request)
+            var jsonText = response.choices.firstOrNull()?.message?.content?.trim() ?: ""
+            
             if (jsonText.contains("{")) {
                 jsonText = jsonText.substring(jsonText.indexOf("{"), jsonText.lastIndexOf("}") + 1)
             }
@@ -68,7 +88,8 @@ class ExpenseRepository(private val expenseDao: ExpenseDao) {
 
             ExpenseEntity(date = dateStr, title = title, amount = amount, category = category, weather = weather)
         } catch (e: Exception) {
-            // AI 실패 시: 강화된 키워드 매칭 로직으로 분류 (차트가 '기타'로 도배되는 것 방지)
+            Log.e("GroqAPI", "Parsing Error: ${e.message}")
+            // 💡 에러 발생 시 수동 추출 로직으로 대체
             ExpenseEntity(
                 date = dateStr,
                 title = extractTitleFallback(sentence),
@@ -79,7 +100,6 @@ class ExpenseRepository(private val expenseDao: ExpenseDao) {
         }
     }
 
-    // 🎯 AI가 고장 나도 웬만한 건 다 맞추는 '마스터 분류 사전'
     private fun guessCategory(sentence: String): String {
         val s = sentence.lowercase()
         return when {
@@ -104,10 +124,17 @@ class ExpenseRepository(private val expenseDao: ExpenseDao) {
 
     suspend fun getAiFeedback(summary: String): String {
         return try {
-            val response = generativeModel.generateContent("다음 가계부 요약을 보고 짧고 위트 있게 피드백해줘: $summary")
-            response.text ?: "기록이 더 쌓이면 멋진 분석을 해드릴게요!"
+            val request = GroqRequest(
+                messages = listOf(
+                    GroqMessage(role = "user", content = "다음 가계부 요약을 보고 짧고 위트 있게 피드백해줘: $summary")
+                )
+            )
+            val response = groqService.getChatCompletion("Bearer ${BuildConfig.GROQ_API_KEY}", request)
+            response.choices.firstOrNull()?.message?.content ?: "데이터가 쌓이면 분석을 시작할게요!"
         } catch (e: Exception) {
-            "🤖 AI 비서가 새 키를 인식할 수 있게 [Build] -> [Clean Project] 후 앱을 다시 실행해 주세요!"
+            Log.e("GroqAPI", "Feedback Error: ${e.message}")
+            if (BuildConfig.GROQ_API_KEY.isEmpty()) "❌ API 키가 설정되지 않았습니다."
+            else "🤖 AI가 응답하지 않습니다. (네트워크나 키 권한 확인 필요)"
         }
     }
 

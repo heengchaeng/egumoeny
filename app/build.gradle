@@ -25,6 +25,7 @@ android {
         // Inject API Keys from local.properties
         buildConfigField "String", "GEMINI_API_KEY", "\"${properties.getProperty('GEMINI_API_KEY', '')}\""
         buildConfigField "String", "WEATHER_API_KEY", "\"${properties.getProperty('WEATHER_API_KEY', '')}\""
+        buildConfigField "String", "GROQ_API_KEY", "\"${properties.getProperty('GROQ_API_KEY', '')}\""
     }
 
     buildTypes {
@@ -74,7 +75,7 @@ dependencies {
     implementation 'com.squareup.okhttp3:logging-interceptor:4.12.0'
 
     // Google Gemini API SDK
-    implementation 'com.google.ai.client.generativeai:generativeai:0.7.0'
+    implementation 'com.google.ai.client.generativeai:generativeai:0.9.0'
 
     // Play Services Location (For Weather API)
     implementation 'com.google.android.gms:play-services-location:21.1.0'

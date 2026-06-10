@@ -18,6 +18,9 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
     private val _aiFeedback = MutableLiveData<String>()
     val aiFeedback: LiveData<String> = _aiFeedback
 
+    private val _isLoading = MutableLiveData<Boolean>(false)
+    val isLoading: LiveData<Boolean> = _isLoading
+
     private val sharedPrefs = application.getSharedPreferences("budget_prefs", Context.MODE_PRIVATE)
 
     init {
@@ -46,9 +49,14 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun addExpenseFromNaturalLanguage(sentence: String, weather: String) = viewModelScope.launch {
-        val parsed = repository.parseExpense(sentence, weather)
-        repository.insert(parsed)
-        generateAiFeedback()
+        _isLoading.value = true
+        try {
+            val parsed = repository.parseExpense(sentence, weather)
+            repository.insert(parsed)
+            generateAiFeedback()
+        } finally {
+            _isLoading.value = false
+        }
     }
 
     fun generateAiFeedback() = viewModelScope.launch {

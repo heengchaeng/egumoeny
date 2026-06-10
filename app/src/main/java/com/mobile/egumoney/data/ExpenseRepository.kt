@@ -12,10 +12,9 @@ class ExpenseRepository(private val expenseDao: ExpenseDao) {
 
     val allExpenses: Flow<List<ExpenseEntity>> = expenseDao.getAllExpenses()
 
-    // 🚨 [필독] 404 에러 원천 차단: 구버전 라이브러리에서도 무조건 인식하는 공식 구형 모델명인 "gemini-pro"로 변경합니다.
-    // 현재 사용 중이신 키("AQ.Ab8RN...")는 비공식 키이므로, 테스트 시 에러가 나더라도 앱이 절대 튕기지 않게 catch 블록을 완전히 강화했습니다.
+    // ✅ [업데이트] 최신 모델로 변경: gemini-pro에서 gemini-1.5-flash-latest로 업데이트하여 404 에러를 해결합니다.
     private val generativeModel = GenerativeModel(
-        modelName = "gemini-pro", 
+        modelName = "gemini-1.5-flash-latest",
         apiKey = BuildConfig.GEMINI_API_KEY
     )
 
@@ -66,12 +65,30 @@ class ExpenseRepository(private val expenseDao: ExpenseDao) {
             )
         } catch (e: Exception) {
             e.printStackTrace()
-            // 🚨 API 키가 올바르지 않거나 404 에러가 발생해도 정상 등록되도록 로컬 파싱 대체 적용
+            
+            // 🚨 [스마트 폴백] AI 실패 시 정규식으로 가장 큰 숫자를 금액으로 추출하고 키워드로 카테고리 매핑
+            val amountRegex = Regex("(\\d[,\\d]*)")
+            val matches = amountRegex.findAll(sentence)
+            val extractedAmount = matches.map { it.value.replace(",", "").toIntOrNull() ?: 0 }.maxOrNull() ?: 0
+            
+            // 키워드 기반 카테고리 매핑
+            var category = "기타"
+            val lowered = sentence.lowercase()
+            when {
+                lowered.contains("커피") || lowered.contains("식사") || lowered.contains("밥") || lowered.contains("점심") || lowered.contains("저녁") || lowered.contains("배달") || lowered.contains("coffee") || lowered.contains("lunch") -> category = "식비"
+                lowered.contains("버스") || lowered.contains("지하철") || lowered.contains("택시") || lowered.contains("주유") || lowered.contains("bus") || lowered.contains("subway") -> category = "교통비"
+                lowered.contains("옷") || lowered.contains("쇼핑") || lowered.contains("마트") || lowered.contains("쿠팡") || lowered.contains("shopping") -> category = "쇼핑"
+                lowered.contains("영화") || lowered.contains("게임") || lowered.contains("노래방") || lowered.contains("운동") || lowered.contains("movie") -> category = "문화"
+                lowered.contains("주식") || lowered.contains("코인") || lowered.contains("투자") || lowered.contains("저축") || lowered.contains("invest") -> category = "투자"
+            }
+            
+            val cleanTitle = sentence.replace(Regex("\\d"), "").replace(",", "").replace("원", "").trim().take(12)
+
             ExpenseEntity(
                 date = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date()),
-                title = sentence.take(12),
-                amount = 0,
-                category = "기타",
+                title = if (cleanTitle.isEmpty()) "지출 내역" else cleanTitle,
+                amount = extractedAmount,
+                category = category,
                 weather = weather
             )
         }

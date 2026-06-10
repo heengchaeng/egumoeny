@@ -1,6 +1,6 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
-    <style name="Theme.Egumoney" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+    <style name="Theme.Egumoney" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
         <!-- Primary brand color. -->
         <item name="colorPrimary">@color/primary</item>
         <item name="colorPrimaryVariant">@color/primary_dark</item>
@@ -13,6 +13,13 @@
         <item name="android:statusBarColor">@color/white</item>
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:windowBackground">@color/background</item>
+
+        <!-- Action Bar setting: We use a custom Toolbar in activity_main.xml, so we hide the default one -->
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+
+        <!-- Fix InflateException by ensuring actionBarSize is defined -->
+        <item name="actionBarSize">56dp</item>
     </style>
 
     <!-- Splash Screen Theme -->
@@ -20,5 +27,7 @@
         <item name="windowSplashScreenAnimatedIcon">@drawable/app_logo</item>
         <item name="windowSplashScreenBackground">@color/white</item>
         <item name="postSplashScreenTheme">@style/Theme.Egumoney</item>
+        <!-- Ensure actionBarSize is available during splash if needed, though usually it's post-splash -->
+        <item name="actionBarSize">56dp</item>
     </style>
 </resources>

@@ -36,7 +36,9 @@ class ExpenseAdapter(
 
             // 🎯 리스트의 카테고리를 레포지토리와 동일한 기준으로 표시
             val category = expense.category.trim()
-            binding.tvItemCategory.text = category
+            val emojis = mapOf("식비" to "🍴", "교통비" to "🚌", "쇼핑" to "🛍️", "문화" to "🎬", "투자" to "📈", "기타" to "🏷️")
+            val emoji = emojis[category] ?: "🏷️"
+            binding.tvItemCategory.text = "$emoji $category"
 
             // 🎨 차트와 동일한 색상 지정
             val catColorRes = when (category) {

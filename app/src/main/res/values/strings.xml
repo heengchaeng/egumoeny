@@ -6,5 +6,12 @@
     <string name="weekly_feedback_title">💡 AI 잔소리 비서 (에구머니나!)</string>
     <string name="monthly_chart_title">📊 이번 달 카테고리별 소비</string>
     <string name="weekly_chart_title">📈 최근 7일 지출 추이</string>
-    <string name="weather_loading">날씨 정보 가져오는 중...</string>
+    <string name="tab_dashboard">분석/자산</string>
+    <string name="tab_home">홈</string>
+    <string name="tab_analysis">분석</string>
+    <string name="tab_calendar">캘린더</string>
+    <string name="tab_history">내역</string>
+    <string name="weather_loading">📍 위치 정보 로드 중...</string>
+    <string name="ai_analyzing">Gemini가 분석 중...</string>
+    <string name="ai_feedback_loading">지출 내역을 분석 중입니다...</string>
 </resources>

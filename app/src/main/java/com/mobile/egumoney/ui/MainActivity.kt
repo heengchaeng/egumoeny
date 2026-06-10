@@ -17,8 +17,11 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import android.text.SpannableStringBuilder
+import android.text.Spanned
+import android.text.style.ForegroundColorSpan
+import android.widget.TextView
 import androidx.core.content.ContextCompat
-import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.github.mikephil.charting.formatter.ValueFormatter
 import com.github.mikephil.charting.data.*
@@ -33,10 +36,8 @@ import com.mobile.egumoney.data.ExpenseEntity
 import com.mobile.egumoney.databinding.ActivityMainBinding
 import com.mobile.egumoney.databinding.DialogEditExpenseBinding
 import com.mobile.egumoney.viewmodel.ExpenseViewModel
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import com.mobile.egumoney.util.NotificationHelper
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.*
@@ -46,8 +47,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private val viewModel: ExpenseViewModel by viewModels()
     private lateinit var expenseAdapter: ExpenseAdapter
+    private lateinit var calendarAdapter: CalendarAdapter
+    private lateinit var weeklyCalendarAdapter: WeeklyCalendarAdapter
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var notificationHelper: NotificationHelper
+
+    private var currentCalendarDate = Calendar.getInstance()
 
     private var currentWeatherStatus = "☀️ 맑음"
     private var isBudgetExceededNotified = false
@@ -66,6 +71,7 @@ class MainActivity : AppCompatActivity() {
         if (permissions[Manifest.permission.POST_NOTIFICATIONS] == false) {
             Toast.makeText(this, "알림 권한이 꺼져 있어 예산 경고를 볼 수 없습니다.", Toast.LENGTH_SHORT).show()
         }
+        binding.tvHomeGreeting.text = "반가워요! ${viewModel.getUserNickname()}님!"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -79,9 +85,12 @@ class MainActivity : AppCompatActivity() {
 
         setupRecyclerView()
         setupListeners()
-        setupAmountTextWatcher() // 쉼표 실시간 감지기 부착
+        setupAmountTextWatcher()
         observeViewModel()
         checkPermissions()
+
+        val nickname = viewModel.getUserNickname()
+        binding.tvHomeGreeting.text = "반가워요! $nickname 님!"
 
         switchTab(0)
         viewModel.generateAiFeedback()
@@ -97,12 +106,26 @@ class MainActivity : AppCompatActivity() {
             adapter = expenseAdapter
         }
 
-        val categories = arrayOf("식비", "교통비", "쇼핑", "문화", "투자", "기타")
+        val categories = arrayOf("식비", "교통비", "쇼핑", "문화", "투자", "수입", "기타")
         val spinnerAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, categories)
         binding.spinnerManualCategory.adapter = spinnerAdapter
+
+        calendarAdapter = CalendarAdapter()
+        binding.rvCalendar.adapter = calendarAdapter
+
+        weeklyCalendarAdapter = WeeklyCalendarAdapter()
+        binding.rvWeeklyCalendar.adapter = weeklyCalendarAdapter
+
+        binding.btnPrevMonth.setOnClickListener {
+            currentCalendarDate.add(Calendar.MONTH, -1)
+            updateCalendar(viewModel.allExpenses.value ?: emptyList())
+        }
+        binding.btnNextMonth.setOnClickListener {
+            currentCalendarDate.add(Calendar.MONTH, 1)
+            updateCalendar(viewModel.allExpenses.value ?: emptyList())
+        }
     }
 
-    // 🚨 [신규] 수동 등록 금액창에 천 단위 실시간 쉼표 기능 구현
     private fun setupAmountTextWatcher() {
         binding.etManualAmount.addTextChangedListener(object : TextWatcher {
             private var currentStr = ""
@@ -135,7 +158,7 @@ class MainActivity : AppCompatActivity() {
             if (sentence.isNotEmpty()) {
                 viewModel.addExpenseFromNaturalLanguage(sentence, currentWeatherStatus)
                 binding.etExpenseInput.setText("")
-                switchTab(2)
+                switchTab(4)
             } else {
                 Toast.makeText(this, "내역을 입력해 주세요.", Toast.LENGTH_SHORT).show()
             }
@@ -143,13 +166,12 @@ class MainActivity : AppCompatActivity() {
 
         binding.btnManualRegister.setOnClickListener {
             val title = binding.etManualTitle.text.toString().trim()
-            // 🚨 [수정] 데이터 저장할 때는 쉼표(,)를 깨끗하게 지우고 순수 숫자로 파싱합니다.
             val rawAmountStr = binding.etManualAmount.text.toString().trim().replace(",", "")
             val category = binding.spinnerManualCategory.selectedItem?.toString()?.trim() ?: "기타"
 
             if (title.isNotEmpty() && rawAmountStr.isNotEmpty()) {
                 val expense = ExpenseEntity(
-                    date = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date()),
+                    date = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).format(Date()),
                     title = title,
                     amount = rawAmountStr.toIntOrNull() ?: 0,
                     category = category,
@@ -159,100 +181,142 @@ class MainActivity : AppCompatActivity() {
                 binding.etManualTitle.setText("")
                 binding.etManualAmount.setText("")
                 Toast.makeText(this, "✅ 저장 완료!", Toast.LENGTH_SHORT).show()
-                switchTab(2)
+                switchTab(4)
             }
         }
 
         binding.btnSetBudget.setOnClickListener { showBudgetSettingsDialog() }
-        binding.tabDashboard.setOnClickListener { switchTab(0) }
-        binding.tabAdd.setOnClickListener { switchTab(1) }
-        binding.tabHistory.setOnClickListener { switchTab(2) }
+        
+        binding.tabHome.setOnClickListener { switchTab(0) }
+        binding.tabDashboard.setOnClickListener { switchTab(1) }
+        binding.tabAdd.setOnClickListener { switchTab(2) }
+        binding.tabCalendar.setOnClickListener { switchTab(3) }
+        binding.tabHistory.setOnClickListener { switchTab(4) }
     }
 
     private fun observeViewModel() {
         viewModel.allExpenses.observe(this) { expenses ->
             expenseAdapter.submitList(expenses)
             updateCharts(expenses)
-            updateTotalExpenseText(expenses)
             updateBudgetStatus(expenses)
+            updateCalendar(expenses)
+            updateAssetInfo(expenses)
         }
-        viewModel.aiFeedback.observe(this) { binding.tvAiFeedback.text = it }
+        viewModel.aiFeedback.observe(this) { 
+            binding.tvAiFeedback.text = it 
+            binding.tvAiSummary.text = it
+        }
         viewModel.isLoading.observe(this) { isLoading ->
             binding.layoutLoading.visibility = if (isLoading) View.VISIBLE else View.GONE
         }
     }
 
-    // 🚨 [수정] 예산 현황 리스트 및 일일 권장 소비액 계산 추가
     private fun updateBudgetStatus(expenses: List<ExpenseEntity>) {
-        val currentMonthStr = SimpleDateFormat("yyyy-MM", Locale.getDefault()).format(Date())
+        val currentMonthStr = SimpleDateFormat("yyyy-MM", Locale.US).format(Date())
         val monthlyExpenses = expenses.filter { it.date.startsWith(currentMonthStr) }
-        val totalSpent = monthlyExpenses.sumOf { it.amount }
+        val totalSpent = monthlyExpenses.filter { it.category.trim() != "수입" }.sumOf { it.amount }
         
         val totalBudget = viewModel.getTotalBudget()
         val remaining = totalBudget - totalSpent
 
-        // 남은 일수 계산
+        // 🎯 예산 초과 시에도 실제 퍼센트가 표시되도록 계산
+        val percent = if (totalBudget > 0) {
+            (totalSpent.toDouble() / totalBudget.toDouble() * 100).toInt()
+        } else if (totalSpent > 0) {
+            // 예산이 0인데 지출이 있으면, 지출액 그 자체를 퍼센트처럼 보여주거나 매우 높은 수치로 표현 (여기선 100 이상으로 표현되게 유도)
+            if (totalSpent > 0) (totalSpent / 1000).coerceAtLeast(100) else 0 
+        } else {
+            0
+        }
+        
+        binding.pbBudget.progress = percent.coerceIn(0, 100)
+        binding.tvBudgetPercentage.text = if (totalBudget == 0 && totalSpent > 0) "초과!" else "$percent%" 
+        
+        if (percent >= 100 || (totalBudget == 0 && totalSpent > 0)) {
+            binding.tvBudgetPercentage.setTextColor(ContextCompat.getColor(this, R.color.expense))
+            binding.tvBudgetPercentage.setTypeface(null, android.graphics.Typeface.BOLD)
+            binding.pbBudget.progressTintList = android.content.res.ColorStateList.valueOf(ContextCompat.getColor(this, R.color.expense))
+        } else {
+            binding.tvBudgetPercentage.setTextColor(ContextCompat.getColor(this, R.color.primary))
+            binding.tvBudgetPercentage.setTypeface(null, android.graphics.Typeface.NORMAL)
+            binding.pbBudget.progressTintList = android.content.res.ColorStateList.valueOf(ContextCompat.getColor(this, R.color.primary))
+        }
+
+        binding.tvRemainingBudget.text = "${moneyFormatter.format(remaining)}원"
+        
         val calendar = Calendar.getInstance()
         val today = calendar.get(Calendar.DAY_OF_MONTH)
         val lastDay = calendar.getActualMaximum(Calendar.DAY_OF_MONTH)
         val remainingDays = (lastDay - today + 1).coerceAtLeast(1)
         val dailyAllowance = if (remaining > 0) remaining / remainingDays else 0
+        binding.tvDailyAllowance.text = "${moneyFormatter.format(dailyAllowance)}원"
 
-        val statusBuilder = android.text.SpannableStringBuilder()
-        
-        statusBuilder.append("💰 이번 달 총 예산 :   ${moneyFormatter.format(totalBudget)}원\n")
-        statusBuilder.append("📉 총 남은 금액     :   ${moneyFormatter.format(remaining)}원\n")
-        
-        val allowanceStart = statusBuilder.length
-        statusBuilder.append("📅 일일 권장 소비   :   ${moneyFormatter.format(dailyAllowance)}원 (남은 ${remainingDays}일)\n")
-        statusBuilder.setSpan(
-            android.text.style.ForegroundColorSpan(Color.parseColor("#4CAF50")),
-            allowanceStart,
-            statusBuilder.length,
-            android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-        )
+        binding.layoutCategoryStatus.removeAllViews()
+        val categories = arrayOf("식비", "교통비", "쇼핑", "문화", "투자", "수입", "기타")
+        val emojis = mapOf("식비" to "🍴", "교통비" to "🚌", "쇼핑" to "🛍️", "문화" to "🎬", "투자" to "📈", "수입" to "💰", "기타" to "🏷️")
 
-        statusBuilder.append("\n━━━━━━━━━━━━━━━━━━━━━━\n")
-        statusBuilder.append("📂 [카테고리별 예산 현황]\n\n")
-
-        val categories = arrayOf("식비", "교통비", "쇼핑", "문화", "투자", "기타")
-        val emojis = mapOf("식비" to "🍴", "교통비" to "🚌", "쇼핑" to "🛍️", "문화" to "🎬", "투자" to "📈", "기타" to "🏷️")
-
-        for (cat in categories) {
+        categories.filter { it != "수입" }.forEach { cat ->
             val catLimit = viewModel.getBudgetLimit(cat)
             val catSpent = monthlyExpenses.filter { it.category.trim() == cat.trim() }.sumOf { it.amount }
-            val catRemaining = catLimit - catSpent
             
-            val emoji = emojis[cat] ?: "•"
-            val paddedCategory = cat.padEnd(4, ' ')
-            
-            statusBuilder.append("$emoji $paddedCategory :  ")
-            
-            val valueStart = statusBuilder.length
-            if (catRemaining < 0) {
-                statusBuilder.append("초과 ${moneyFormatter.format(Math.abs(catRemaining))}원 🚨\n")
-                statusBuilder.setSpan(
-                    android.text.style.ForegroundColorSpan(ContextCompat.getColor(this, R.color.pastel_red)),
-                    valueStart,
-                    statusBuilder.length,
-                    android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-                )
-            } else {
-                statusBuilder.append("남음 ${moneyFormatter.format(catRemaining)}원\n")
-                statusBuilder.setSpan(
-                    android.text.style.ForegroundColorSpan(ContextCompat.getColor(this, R.color.pastel_blue)),
-                    valueStart,
-                    statusBuilder.length,
-                    android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-                )
+            if (catLimit > 0 || catSpent > 0) {
+                val catRemaining = catLimit - catSpent
+                val itemView = layoutInflater.inflate(R.layout.item_category_status, binding.layoutCategoryStatus, false)
+                
+                val tvName = itemView.findViewById<TextView>(R.id.tv_cat_name)
+                val tvPercent = itemView.findViewById<TextView>(R.id.tv_cat_percent)
+                val tvAmount = itemView.findViewById<TextView>(R.id.tv_cat_amount)
+                val pbBudget = itemView.findViewById<android.widget.ProgressBar>(R.id.pb_cat_budget)
+                
+                val emoji = emojis[cat] ?: "•"
+                tvName.text = "$emoji $cat"
+                
+                // 🎯 퍼센트 계산 로직: 100% 초과 시에도 실제 퍼센트 표시 (예: 233%)
+                val progress = if (catLimit > 0) {
+                    ((catSpent.toDouble() / catLimit.toDouble()) * 100.0).toInt()
+                } else if (catSpent > 0) {
+                    // 예산이 0원인데 지출이 있는 경우, 100% 이상임을 나타내기 위해 지출액 기반으로 임의 계산하거나 100으로 고정
+                    100
+                } else {
+                    0
+                }
+                
+                // 🎯 텍스트는 실제 계산된 progress를 그대로 표시 (100% 한도 없음)
+                if (catLimit == 0 && catSpent > 0) {
+                    // 예산이 0원인데 지출이 있다면, 지출 금액 자체를 강조하거나 무한대 표시 대신 큰 수치를 보여줄 수 있음
+                    // 여기서는 사용자의 요청대로 '몇 퍼센트'인지를 보여주기 위해 catLimit가 0일 때도 지출이 있으면 최소 100% 이상으로 표시
+                    tvPercent.text = "${(catSpent / 100).coerceAtLeast(100)}%"
+                } else {
+                    tvPercent.text = "${progress}%"
+                }
+                
+                // 🎨 100% 초과 시 빨간색 및 볼드 처리
+                if (progress >= 100 || (catLimit == 0 && catSpent > 0)) {
+                    tvPercent.setTextColor(ContextCompat.getColor(this, R.color.expense))
+                    tvPercent.setTypeface(null, android.graphics.Typeface.BOLD)
+                    pbBudget.progressTintList = android.content.res.ColorStateList.valueOf(ContextCompat.getColor(this, R.color.expense))
+                } else {
+                    tvPercent.setTextColor(ContextCompat.getColor(this, R.color.text_secondary))
+                    tvPercent.setTypeface(null, android.graphics.Typeface.NORMAL)
+                    pbBudget.progressTintList = android.content.res.ColorStateList.valueOf(ContextCompat.getColor(this, R.color.primary))
+                }
+
+                pbBudget.progress = progress.coerceIn(0, 100) // 프로그레스 바 시각화는 100까지 꽉 차게 표시
+
+                if (catRemaining < 0) {
+                    tvAmount.text = "초과 ${moneyFormatter.format(Math.abs(catRemaining))}원 🚨"
+                    tvAmount.setTextColor(ContextCompat.getColor(this, R.color.expense))
+                } else {
+                    tvAmount.text = "남음 ${moneyFormatter.format(catRemaining)}원"
+                    tvAmount.setTextColor(ContextCompat.getColor(this, R.color.income))
+                }
+                
+                binding.layoutCategoryStatus.addView(itemView)
             }
         }
 
-        binding.tvBudgetStatus.text = statusBuilder
-        
         if (totalBudget > 0 && remaining < 0) {
             if (!isBudgetExceededNotified) {
-                // 🚨 [신규] 푸시 알림 발송
                 notificationHelper.showBudgetExceededNotification(
                     "🚨 예산 초과 알림",
                     "이번 달 총 예산을 ${moneyFormatter.format(Math.abs(remaining))}원 초과했습니다!"
@@ -263,35 +327,27 @@ class MainActivity : AppCompatActivity() {
         } else {
             isBudgetExceededNotified = false
         }
-
-        // 카테고리별 초과 알림 (개별 카테고리 알림도 추가하고 싶다면 여기서 구현 가능)
-        for (cat in categories) {
-            val catLimit = viewModel.getBudgetLimit(cat)
-            val catSpent = monthlyExpenses.filter { it.category.trim() == cat.trim() }.sumOf { it.amount }
-            if (catLimit > 0 && catSpent > catLimit) {
-                // 카테고리별 알림은 너무 자주 올 수 있으므로 필요 시 추가 로직 필요
-            }
-        }
     }
 
-    // 🚨 [수정] 원형 차트 색상 완전 다양화 구현법 (기타 고정 탈출)
     private fun updateCharts(expenses: List<ExpenseEntity>) {
-        val currentMonthStr = SimpleDateFormat("yyyy-MM", Locale.getDefault()).format(Date())
-        val monthlyExpenses = expenses.filter { it.date.startsWith(currentMonthStr) }
+        val currentMonthStr = SimpleDateFormat("yyyy-MM", Locale.US).format(Date())
+        val monthlyExpenses = expenses.filter { it.date.startsWith(currentMonthStr) && it.category.trim() != "수입" }
 
         binding.pieChart.clear()
         binding.barChart.clear()
 
-        // 공백 트림 연동 강화로 정확한 카테고리 그룹화 보장
         val categoryGroups = monthlyExpenses.groupBy { it.category.trim() }
             .mapValues { entry -> entry.value.sumOf { it.amount } }
 
-        if (categoryGroups.isEmpty()) return
+        if (categoryGroups.isEmpty()) {
+            binding.pieChart.invalidate()
+            binding.barChart.invalidate()
+            return
+        }
 
         val pieEntries = categoryGroups.map { PieEntry(it.value.toFloat(), it.key) }
         val pieDataSet = PieDataSet(pieEntries, "")
         
-        // 데이터가 나뉘는 즉시 다양한 색상 칩 부여
         pieDataSet.colors = pieEntries.map {
             val colorRes = when (it.label.trim()) {
                 "식비" -> R.color.cat_food
@@ -299,6 +355,7 @@ class MainActivity : AppCompatActivity() {
                 "쇼핑" -> R.color.cat_shopping
                 "문화" -> R.color.cat_culture
                 "투자" -> R.color.cat_investment
+                "수입" -> R.color.income
                 else -> R.color.cat_etc
             }
             ContextCompat.getColor(this, colorRes)
@@ -313,18 +370,17 @@ class MainActivity : AppCompatActivity() {
         
         binding.pieChart.data = PieData(pieDataSet)
         binding.pieChart.description.isEnabled = false
-        binding.pieChart.legend.isEnabled = false // 하단 범례 대신 리스트 가독성 중점
+        binding.pieChart.legend.isEnabled = false
         binding.pieChart.animateXY(600, 600)
         binding.pieChart.invalidate()
 
-        // 바 차트 일주일 연동
-        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
         val barEntries = ArrayList<BarEntry>()
-        val calendar = Calendar.getInstance()
         for (i in 0..6) {
-            calendar.set(Calendar.DAY_OF_YEAR, Calendar.getInstance().get(Calendar.DAY_OF_YEAR) - (6 - i))
-            val dateStr = sdf.format(calendar.time)
-            barEntries.add(BarEntry(i.toFloat(), expenses.filter { it.date == dateStr }.sumOf { it.amount }.toFloat()))
+            val dayCalendar = Calendar.getInstance()
+            dayCalendar.add(Calendar.DAY_OF_YEAR, -(6 - i))
+            val dateStr = sdf.format(dayCalendar.time)
+            barEntries.add(BarEntry(i.toFloat(), expenses.filter { it.date.startsWith(dateStr) }.sumOf { it.amount }.toFloat()))
         }
         val barDataSet = BarDataSet(barEntries, "지출 추이")
         barDataSet.color = Color.parseColor("#A7CBD9")
@@ -336,6 +392,112 @@ class MainActivity : AppCompatActivity() {
         binding.barChart.data = BarData(barDataSet)
         binding.barChart.description.isEnabled = false
         binding.barChart.invalidate()
+    }
+
+    private fun updateCalendar(expenses: List<ExpenseEntity>) {
+        val calendar = currentCalendarDate.clone() as Calendar
+        calendar.set(Calendar.DAY_OF_MONTH, 1)
+        
+        val monthFormat = SimpleDateFormat("yyyy년 MM월", Locale.getDefault())
+        binding.tvCalendarMonth.text = monthFormat.format(calendar.time)
+
+        val monthBeginningCell = calendar.get(Calendar.DAY_OF_WEEK) - 1
+        calendar.add(Calendar.DAY_OF_MONTH, -monthBeginningCell)
+
+        val days = mutableListOf<Date?>()
+        while (days.size < 42) {
+            val dateInCurrentMonth = Calendar.getInstance().apply { time = calendar.time }.get(Calendar.MONTH) == currentCalendarDate.get(Calendar.MONTH)
+            if (dateInCurrentMonth) {
+                days.add(calendar.time)
+            } else {
+                days.add(null)
+            }
+            calendar.add(Calendar.DAY_OF_MONTH, 1)
+            if (days.size >= monthBeginningCell + currentCalendarDate.getActualMaximum(Calendar.DAY_OF_MONTH) && days.size % 7 == 0) break
+        }
+        
+        calendarAdapter.setData(days, expenses)
+
+        // 🎯 주간 요약 업데이트 추가
+        updateWeeklySummary(expenses)
+    }
+
+    private fun updateWeeklySummary(expenses: List<ExpenseEntity>) {
+        val calendar = Calendar.getInstance()
+        
+        // 🎯 "X월 Y주차 요약" 텍스트 설정
+        val month = calendar.get(Calendar.MONTH) + 1
+        val weekOfMonth = calendar.get(Calendar.WEEK_OF_MONTH)
+        binding.tvWeeklySummaryTitle.text = "${month}월 ${weekOfMonth}주차 요약"
+
+        // 이번 주의 시작(일요일)으로 설정
+        calendar.set(Calendar.DAY_OF_WEEK, Calendar.SUNDAY)
+        calendar.set(Calendar.HOUR_OF_DAY, 0)
+        calendar.set(Calendar.MINUTE, 0)
+        calendar.set(Calendar.SECOND, 0)
+        
+        val weeklyDates = mutableListOf<Date>()
+        val weekStart = calendar.time
+        for (i in 0..6) {
+            weeklyDates.add(calendar.time)
+            calendar.add(Calendar.DAY_OF_WEEK, 1)
+        }
+        
+        // 다시 일요일로 복구해서 범위 계산
+        calendar.time = weekStart
+        val weekEndCalendar = Calendar.getInstance()
+        weekEndCalendar.time = weekStart
+        weekEndCalendar.add(Calendar.DAY_OF_WEEK, 6)
+        weekEndCalendar.set(Calendar.HOUR_OF_DAY, 23)
+        weekEndCalendar.set(Calendar.MINUTE, 59)
+        weekEndCalendar.set(Calendar.SECOND, 59)
+        val weekEnd = weekEndCalendar.time
+
+        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+        val weeklyExpenses = expenses.filter {
+            try {
+                // 날짜 부분만 추출하여 비교 (yyyy-MM-dd)
+                val datePart = if (it.date.length >= 10) it.date.substring(0, 10) else it.date
+                val expenseDate = sdf.parse(datePart)
+                expenseDate != null && !expenseDate.before(weekStart) && !expenseDate.after(weekEnd)
+            } catch (e: Exception) {
+                false
+            }
+        }
+
+        val income = weeklyExpenses.filter { it.category.trim() == "수입" }.sumOf { it.amount }
+        val expense = weeklyExpenses.filter { it.category.trim() != "수입" }.sumOf { it.amount }
+
+        binding.tvWeeklyIncome.text = "${moneyFormatter.format(income)}원"
+        binding.tvWeeklyExpense.text = "${moneyFormatter.format(expense)}원"
+        
+        // 🎯 하단 주간 날짜별 리스트 업데이트
+        weeklyCalendarAdapter.setData(weeklyDates, expenses)
+    }
+
+    private fun updateAssetInfo(expenses: List<ExpenseEntity>) {
+        val currentMonthStr = SimpleDateFormat("yyyy-MM", Locale.US).format(Date())
+        val monthlyExpenses = expenses.filter { it.date.startsWith(currentMonthStr) }
+        
+        val monthlyIncome = monthlyExpenses.filter { it.category.trim() == "수입" }.sumOf { it.amount }
+        val monthlyExpense = monthlyExpenses.filter { it.category.trim() != "수입" }.sumOf { it.amount }
+        
+        // 자산 계산: (누적 수입 - 누적 지출)
+        val totalIncome = expenses.filter { it.category.trim() == "수입" }.sumOf { it.amount }
+        val totalExpense = expenses.filter { it.category.trim() != "수입" }.sumOf { it.amount }
+        val currentAsset = totalIncome - totalExpense
+        
+        binding.tvTotalAsset.text = "${moneyFormatter.format(currentAsset)}원"
+        binding.tvMonthlyIncome.text = "+${moneyFormatter.format(monthlyIncome)}원"
+        binding.tvMonthlyExpense.text = "-${moneyFormatter.format(monthlyExpense)}원"
+
+        // 자산 카드 디자인 변경에 맞춰 텍스트 색상 설정 (화이트 배경 카드)
+        binding.tvTotalAsset.setTextColor(ContextCompat.getColor(this, R.color.text_primary))
+        binding.tvTotalAssetLabel.setTextColor(ContextCompat.getColor(this, R.color.text_secondary))
+        binding.tvMonthlyIncome.setTextColor(ContextCompat.getColor(this, R.color.income))
+        binding.tvMonthlyIncomeLabel.setTextColor(ContextCompat.getColor(this, R.color.text_secondary))
+        binding.tvMonthlyExpense.setTextColor(ContextCompat.getColor(this, R.color.expense))
+        binding.tvMonthlyExpenseLabel.setTextColor(ContextCompat.getColor(this, R.color.text_secondary))
     }
 
     private fun showBudgetSettingsDialog() {
@@ -354,7 +516,6 @@ class MainActivity : AppCompatActivity() {
             setText(moneyFormatter.format(viewModel.getTotalBudget()))
         }
         
-        // 입력 시 실시간 쉼표 적용
         input.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
@@ -383,13 +544,12 @@ class MainActivity : AppCompatActivity() {
 
     private fun showCategoryBudgetDialog() {
         val dialogBinding = DialogEditExpenseBinding.inflate(layoutInflater)
-        val categories = arrayOf("식비", "교통비", "쇼핑", "문화", "투자", "기타")
+        val categories = arrayOf("식비", "교통비", "쇼핑", "문화", "투자", "수입", "기타")
         dialogBinding.spinnerEditCategory.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, categories)
         dialogBinding.etEditTitle.visibility = View.GONE
         
         dialogBinding.etEditAmount.hint = "카테고리별 예산(원)"
         
-        // 입력 시 실시간 쉼표 적용
         dialogBinding.etEditAmount.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
@@ -418,16 +578,32 @@ class MainActivity : AppCompatActivity() {
         dialog.show()
     }
 
-    private fun updateTotalExpenseText(expenses: List<ExpenseEntity>) {
-        val currentMonthStr = SimpleDateFormat("yyyy-MM", Locale.getDefault()).format(Date())
-        val monthlyExpenses = expenses.filter { it.date.startsWith(currentMonthStr) }
-        binding.tvTotalExpense.text = "${moneyFormatter.format(monthlyExpenses.sumOf { it.amount })}원"
-    }
-
     private fun switchTab(tabIndex: Int) {
-        binding.containerDashboard.visibility = if (tabIndex == 0) View.VISIBLE else View.GONE
-        binding.containerAdd.visibility = if (tabIndex == 1) View.VISIBLE else View.GONE
-        binding.containerHistory.visibility = if (tabIndex == 2) View.VISIBLE else View.GONE
+        binding.containerHome.visibility = if (tabIndex == 0) View.VISIBLE else View.GONE
+        binding.containerAnalysis.visibility = if (tabIndex == 1) View.VISIBLE else View.GONE
+        binding.containerAdd.visibility = if (tabIndex == 2) View.VISIBLE else View.GONE
+        binding.containerCalendar.visibility = if (tabIndex == 3) View.VISIBLE else View.GONE
+        binding.containerHistory.visibility = if (tabIndex == 4) View.VISIBLE else View.GONE
+
+        val inactiveColor = ContextCompat.getColor(this, R.color.text_secondary)
+        val activeColor = ContextCompat.getColor(this, R.color.primary)
+
+        val tabs = listOf(
+            Pair(binding.ivTabHome, binding.tvTabHome),
+            Pair(binding.ivTabDashboard, binding.tvTabDashboard),
+            null, 
+            Pair(binding.ivTabCalendar, binding.tvTabCalendar),
+            Pair(binding.ivTabHistory, binding.tvTabHistory)
+        )
+
+        tabs.forEachIndexed { index, pair ->
+            pair?.let { (iv, tv) ->
+                val color = if (index == tabIndex) activeColor else inactiveColor
+                iv.setColorFilter(color)
+                tv.setTextColor(color)
+                tv.setTypeface(null, if (index == tabIndex) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
+            }
+        }
     }
 
     private fun checkPermissions() {
@@ -443,13 +619,11 @@ class MainActivity : AppCompatActivity() {
     private fun loadCurrentWeather() {
         binding.tvWeatherStatus.text = "📍 위치 확인 중..."
         
-        // 1. 마지막 위치 즉시 시도 (빠른 응답)
         fusedLocationClient.lastLocation.addOnSuccessListener { lastLoc ->
             if (lastLoc != null) {
                 loadWeatherDirectly(lastLoc.latitude, lastLoc.longitude)
             }
             
-            // 2. 최신 위치 요청 (정확도 향상)
             val cts = CancellationTokenSource()
             fusedLocationClient.getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, cts.token)
                 .addOnSuccessListener { location ->
@@ -490,13 +664,12 @@ class MainActivity : AppCompatActivity() {
 
     private fun showEditDialog(expense: ExpenseEntity) {
         val dialogBinding = DialogEditExpenseBinding.inflate(layoutInflater)
-        val categories = arrayOf("식비", "교통비", "쇼핑", "문화", "투자", "기타")
+        val categories = arrayOf("식비", "교통비", "쇼핑", "문화", "투자", "수입", "기타")
         dialogBinding.spinnerEditCategory.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, categories)
         dialogBinding.spinnerEditCategory.setSelection(categories.indexOf(expense.category.trim()).coerceAtLeast(0))
         dialogBinding.etEditTitle.setText(expense.title)
         dialogBinding.etEditAmount.setText(moneyFormatter.format(expense.amount))
         
-        // 입력 시 실시간 쉼표 적용
         dialogBinding.etEditAmount.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}

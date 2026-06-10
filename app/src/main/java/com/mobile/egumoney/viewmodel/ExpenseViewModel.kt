@@ -62,9 +62,15 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
     fun generateAiFeedback() = viewModelScope.launch {
         val expenses = allExpenses.value ?: emptyList()
         val currentMonth = SimpleDateFormat("yyyy-MM", Locale.getDefault()).format(Date())
-        val monthlyTotal = expenses.filter { it.date.startsWith(currentMonth) }.sumOf { it.amount }
+        val monthlyExpenses = expenses.filter { it.date.startsWith(currentMonth) }
         
-        val summary = "이번 달 총 지출은 ${monthlyTotal}원입니다. 예산은 ${getTotalBudget()}원입니다."
+        val totalSpent = monthlyExpenses.filter { it.category.trim() != "수입" }.sumOf { it.amount }
+        val categorySummary = monthlyExpenses.filter { it.category.trim() != "수입" }
+            .groupBy { it.category.trim() }
+            .map { "${it.key}: ${it.value.sumOf { e -> e.amount }}원" }
+            .joinToString(", ")
+            
+        val summary = "이번 달 총 예산은 ${getTotalBudget()}원인데, 현재까지 총 ${totalSpent}원 썼어. 카테고리별로는 [$categorySummary] 이렇게 썼네."
         _aiFeedback.value = repository.getAiFeedback(summary)
     }
 
@@ -79,6 +85,17 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun getBudgetLimit(category: String): Int = sharedPrefs.getInt("budget_$category", 0)
+
+    fun getUserNickname(): String {
+        var nickname = sharedPrefs.getString("user_nickname", null)
+        if (nickname == null) {
+            val adjectives = listOf("행복한", "절약하는", "똑똑한", "신난", "차분한", "열정적인", "유능한", "스마트한")
+            val animals = listOf("하마 🦛", "펭귄 🐧", "강아지 🐶", "고양이 🐱", "코알라 🐨", "햄스터 🐹", "쿼카 🐾", "토끼 🐰")
+            nickname = "${adjectives.random()} ${animals.random()}"
+            sharedPrefs.edit().putString("user_nickname", nickname).apply()
+        }
+        return nickname
+    }
 
     suspend fun fetchWeather(lat: Double, lon: Double): WeatherResponse? {
         return repository.fetchWeather(lat, lon)

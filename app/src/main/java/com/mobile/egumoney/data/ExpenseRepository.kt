@@ -22,9 +22,9 @@ class ExpenseRepository(private val expenseDao: ExpenseDao) {
 
     val allExpenses: Flow<List<ExpenseEntity>> = expenseDao.getAllExpenses()
 
-    // ✅ [수정] SDK 0.9.0에서 가장 안정적인 gemini-1.0-pro 모델 사용 (404 에러 방지)
+    // ✅ [수정] SDK 0.9.0에서 권장되는 gemini-1.5-flash 모델 사용
     private val generativeModel = GenerativeModel(
-        modelName = "gemini-1.0-pro",
+        modelName = "gemini-1.5-flash",
         apiKey = BuildConfig.GEMINI_API_KEY
     )
 
@@ -67,7 +67,7 @@ class ExpenseRepository(private val expenseDao: ExpenseDao) {
             if (category !in validCategories) { category = "기타" }
 
             ExpenseEntity(
-                date = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date()),
+                date = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).format(Date()),
                 title = title,
                 amount = amount,
                 category = category,
@@ -95,7 +95,7 @@ class ExpenseRepository(private val expenseDao: ExpenseDao) {
             val cleanTitle = sentence.replace(Regex("\\d"), "").replace(",", "").replace("원", "").trim().take(12)
 
             ExpenseEntity(
-                date = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date()),
+                date = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).format(Date()),
                 title = if (cleanTitle.isEmpty()) "지출 내역" else cleanTitle,
                 amount = extractedAmount,
                 category = category,

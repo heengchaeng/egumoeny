@@ -50,28 +50,267 @@
         android:layout_above="@+id/divider_line"
         android:layout_below="@+id/toolbar">
 
+        <!-- 0. 홈 탭 -->
         <androidx.core.widget.NestedScrollView
-            android:id="@+id/container_dashboard"
+            android:id="@+id/container_home"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:fillViewport="true"
             android:visibility="visible">
-
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:padding="20dp">
+
+                <TextView
+                    android:id="@+id/tv_home_greeting"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="안녕하세요! 👋"
+                    android:textColor="@color/text_primary"
+                    android:textSize="22sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="오늘의 소비 생활을 확인해보세요."
+                    android:textColor="@color/text_secondary"
+                    android:textSize="14sp"
+                    android:layout_marginTop="4dp"
+                    android:layout_marginBottom="24dp" />
 
                 <androidx.cardview.widget.CardView
-                    android:id="@+id/card_ai_feedback"
+                    android:id="@+id/card_total_asset"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="16dp"
-                    app:cardBackgroundColor="#F3F4F6"
-                    app:cardCornerRadius="12dp"
-                    app:cardElevation="0dp">
+                    android:layout_marginBottom="24dp"
+                    app:cardBackgroundColor="@color/white"
+                    app:cardCornerRadius="20dp"
+                    app:cardElevation="2dp">
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="24dp">
 
+                        <TextView
+                            android:id="@+id/tv_total_asset_label"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="현재 총 자산"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="13sp" />
+
+                        <TextView
+                            android:id="@+id/tv_total_asset"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="0원"
+                            android:textColor="@color/text_primary"
+                            android:textSize="28sp"
+                            android:textStyle="bold"
+                            android:layout_marginTop="8dp" />
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:background="@color/border_color"
+                            android:layout_marginVertical="20dp" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal">
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+                                <TextView
+                                    android:id="@+id/tv_monthly_income_label"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="이번 달 수입"
+                                    android:textColor="@color/text_secondary"
+                                    android:textSize="11sp" />
+                                <TextView
+                                    android:id="@+id/tv_monthly_income"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="0원"
+                                    android:textColor="@color/income"
+                                    android:textSize="16sp"
+                                    android:textStyle="bold"
+                                    android:layout_marginTop="4dp" />
+                            </LinearLayout>
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+                                <TextView
+                                    android:id="@+id/tv_monthly_expense_label"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="이번 달 지출"
+                                    android:textColor="@color/text_secondary"
+                                    android:textSize="11sp" />
+                                <TextView
+                                    android:id="@+id/tv_monthly_expense"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="0원"
+                                    android:textColor="@color/expense"
+                                    android:textSize="16sp"
+                                    android:textStyle="bold"
+                                    android:layout_marginTop="4dp" />
+                            </LinearLayout>
+                        </LinearLayout>
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="지출 분석"
+                    android:textColor="@color/text_primary"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="12dp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:baselineAligned="false"
+                    android:layout_marginBottom="16dp">
+
+                    <!-- 남은 예산 카드 -->
+                    <androidx.cardview.widget.CardView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="8dp"
+                        app:cardCornerRadius="16dp"
+                        app:cardElevation="2dp">
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:padding="16dp">
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="남은 예산"
+                                android:textColor="@color/text_secondary"
+                                android:textSize="12sp" />
+                            <TextView
+                                android:id="@+id/tv_remaining_budget"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="0원"
+                                android:textColor="@color/pastel_blue"
+                                android:textSize="18sp"
+                                android:textStyle="bold"
+                                android:layout_marginTop="4dp" />
+                        </LinearLayout>
+                    </androidx.cardview.widget.CardView>
+
+                    <!-- 일일 권장 카드 -->
+                    <androidx.cardview.widget.CardView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="8dp"
+                        app:cardCornerRadius="16dp"
+                        app:cardElevation="2dp">
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:padding="16dp">
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="오늘 권장 지출"
+                                android:textColor="@color/text_secondary"
+                                android:textSize="12sp" />
+                            <TextView
+                                android:id="@+id/tv_daily_allowance"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="0원"
+                                android:textColor="#4CAF50"
+                                android:textSize="18sp"
+                                android:textStyle="bold"
+                                android:layout_marginTop="4dp" />
+                        </LinearLayout>
+                    </androidx.cardview.widget.CardView>
+                </LinearLayout>
+
+                <androidx.cardview.widget.CardView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:cardBackgroundColor="@color/white"
+                    app:cardCornerRadius="16dp"
+                    app:cardElevation="2dp"
+                    android:layout_marginBottom="24dp">
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="20dp">
+
+                        <RelativeLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content">
+                            <TextView
+                                android:id="@+id/tv_budget_title"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="전체 예산 대비"
+                                android:textColor="@color/text_secondary"
+                                android:textSize="13sp" />
+                            <TextView
+                                android:id="@+id/tvBudgetPercentage"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_alignParentEnd="true"
+                                android:text="0%"
+                                android:textColor="@color/primary"
+                                android:textStyle="bold" />
+                        </RelativeLayout>
+
+                        <ProgressBar
+                            android:id="@+id/pb_budget"
+                            style="?android:attr/progressBarStyleHorizontal"
+                            android:layout_width="match_parent"
+                            android:layout_height="12dp"
+                            android:layout_marginTop="12dp"
+                            android:progress="0"
+                            android:progressDrawable="@drawable/bg_progress_custom" />
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
+
+                <TextView
+                    android:id="@+id/tv_ai_title"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="AI 소비 리포트"
+                    android:textColor="@color/text_primary"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="12dp" />
+
+                <androidx.cardview.widget.CardView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:cardBackgroundColor="#F8F9FF"
+                    app:cardCornerRadius="16dp"
+                    app:cardElevation="0dp"
+                    android:layout_marginBottom="24dp">
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
@@ -80,19 +319,86 @@
                         android:gravity="center_vertical">
 
                         <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="💡"
+                            android:textSize="24sp"
+                            android:layout_marginEnd="12dp" />
+
+                        <TextView
+                            android:id="@+id/tv_ai_summary"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="지출 데이터를 분석하여 맞춤형 조언을 생성하고 있습니다..."
+                            android:textColor="@color/text_primary"
+                            android:textSize="14sp"
+                            android:lineSpacingExtra="4dp" />
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="카테고리별 현황"
+                    android:textColor="@color/text_primary"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="12dp" />
+
+                <!-- 카테고리별 요약 리스트 -->
+                <androidx.cardview.widget.CardView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:cardCornerRadius="16dp"
+                    app:cardElevation="2dp"
+                    android:layout_marginBottom="32dp">
+                    <LinearLayout
+                        android:id="@+id/layout_category_status"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="12dp" />
+                </androidx.cardview.widget.CardView>
+            </LinearLayout>
+        </androidx.core.widget.NestedScrollView>
+
+        <!-- 1. 분석 탭 -->
+        <androidx.core.widget.NestedScrollView
+            android:id="@+id/container_analysis"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/card_ai_feedback"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="16dp"
+                    app:cardBackgroundColor="#F3F4F6"
+                    app:cardCornerRadius="12dp"
+                    app:cardElevation="0dp">
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:padding="16dp"
+                        android:gravity="center_vertical">
+                        <TextView
                             android:layout_width="36dp"
                             android:layout_height="36dp"
                             android:text="💡"
                             android:textSize="24sp"
                             android:gravity="center"
                             android:layout_marginEnd="12dp" />
-
                         <LinearLayout
                             android:layout_width="0dp"
                             android:layout_weight="1"
                             android:layout_height="wrap_content"
                             android:orientation="vertical">
-
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
@@ -100,141 +406,29 @@
                                 android:textColor="@color/text_primary"
                                 android:textSize="14sp"
                                 android:textStyle="bold" />
-
                             <TextView
                                 android:id="@+id/tv_ai_feedback"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="4dp"
                                 android:lineSpacingMultiplier="1.2"
-                                android:text="지출 내역을 입력하시면 소비 패턴을 분석해 드립니다."
+                                android:text="@string/ai_feedback_loading"
                                 android:textColor="@color/text_primary"
                                 android:textSize="12sp" />
                         </LinearLayout>
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
-
                 <androidx.cardview.widget.CardView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="16dp"
-                    app:cardBackgroundColor="@color/white"
                     app:cardCornerRadius="12dp"
                     app:cardElevation="1dp">
-
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="vertical"
                         android:padding="16dp">
-
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:orientation="horizontal"
-                            android:gravity="center_vertical"
-                            android:layout_marginBottom="8dp">
-
-                            <ImageView
-                                android:layout_width="24dp"
-                                android:layout_height="24dp"
-                                android:src="@android:drawable/ic_menu_save"
-                                app:tint="@color/primary"
-                                android:layout_marginEnd="8dp" />
-
-                            <TextView
-                                android:id="@+id/tvBudgetStatus"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:text="이번 달 예산 로드 중..."
-                                android:textColor="@color/text_primary"
-                                android:textSize="14sp"
-                                android:textStyle="bold" />
-                        </LinearLayout>
-
-                        <View
-                            android:layout_width="match_parent"
-                            android:layout_height="1dp"
-                            android:background="#F3F4F6"
-                            android:layout_marginBottom="12dp"/>
-
-                        <LinearLayout
-                            android:id="@+id/layout_category_progress_container"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:orientation="vertical">
-                            <TextView
-                                android:id="@+id/tv_category_budget_details"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:lineSpacingMultiplier="1.3"
-                                android:textColor="@color/text_primary"
-                                android:textSize="13sp"
-                                android:fontFamily="monospace" />
-                        </LinearLayout>
-                    </LinearLayout>
-                </androidx.cardview.widget.CardView>
-
-                <androidx.cardview.widget.CardView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="16dp"
-                    app:cardBackgroundColor="@color/white"
-                    app:cardCornerRadius="12dp"
-                    app:cardElevation="1dp">
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:padding="20dp"
-                        android:gravity="center_vertical">
-
-                        <ImageView
-                            android:layout_width="28dp"
-                            android:layout_height="28dp"
-                            android:src="@android:drawable/ic_menu_today"
-                            app:tint="@color/text_secondary"
-                            android:layout_marginEnd="12dp" />
-
-                        <LinearLayout
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:orientation="vertical">
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="이번 달 총 지출"
-                                android:textColor="@color/text_secondary"
-                                android:textSize="12sp" />
-
-                            <TextView
-                                android:id="@+id/tv_total_expense"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="4dp"
-                                android:text="0원"
-                                android:textColor="@color/text_primary"
-                                android:textSize="22sp"
-                                android:textStyle="bold" />
-                        </LinearLayout>
-                    </LinearLayout>
-                </androidx.cardview.widget.CardView>
-
-                <androidx.cardview.widget.CardView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="16dp"
-                    app:cardCornerRadius="12dp"
-                    app:cardElevation="1dp">
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:padding="16dp">
-
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
@@ -242,7 +436,6 @@
                             android:textColor="@color/text_primary"
                             android:textSize="15sp"
                             android:textStyle="bold" />
-
                         <com.github.mikephil.charting.charts.PieChart
                             android:id="@+id/pie_chart"
                             android:layout_width="match_parent"
@@ -250,20 +443,16 @@
                             android:layout_marginTop="12dp" />
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
-
                 <androidx.cardview.widget.CardView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="16dp"
                     app:cardCornerRadius="12dp"
                     app:cardElevation="1dp">
-
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="vertical"
                         android:padding="16dp">
-
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
@@ -271,7 +460,6 @@
                             android:textColor="@color/text_primary"
                             android:textSize="15sp"
                             android:textStyle="bold" />
-
                         <com.github.mikephil.charting.charts.BarChart
                             android:id="@+id/bar_chart"
                             android:layout_width="match_parent"
@@ -279,51 +467,30 @@
                             android:layout_marginTop="12dp" />
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
-
             </LinearLayout>
         </androidx.core.widget.NestedScrollView>
 
+        <!-- 2. 추가 탭 (입력) -->
         <androidx.core.widget.NestedScrollView
             android:id="@+id/container_add"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:visibility="gone">
-
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="20dp"
-                android:gravity="center_horizontal">
-
-                <ImageView
-                    android:layout_width="80dp"
-                    android:layout_height="80dp"
-                    android:layout_marginTop="20dp"
-                    android:src="@drawable/app_logo" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:text="소비 기록하기"
-                    android:textColor="@color/text_primary"
-                    android:textSize="18sp"
-                    android:textStyle="bold" />
-
+                android:padding="20dp">
                 <androidx.cardview.widget.CardView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="20dp"
                     app:cardCornerRadius="12dp"
                     app:cardElevation="2dp">
-
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="vertical"
                         android:padding="16dp">
-
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
@@ -332,7 +499,6 @@
                             android:textSize="13sp"
                             android:textStyle="bold"
                             android:layout_marginBottom="8dp"/>
-
                         <EditText
                             android:id="@+id/et_expense_input"
                             android:layout_width="match_parent"
@@ -340,30 +506,26 @@
                             android:hint="@string/input_hint"
                             android:gravity="top|start"
                             android:background="@null"
-                            android:importantForAutofill="no"
                             android:inputType="textMultiLine"
                             android:textSize="14sp" />
-
                         <View
                             android:layout_width="match_parent"
                             android:layout_height="1dp"
                             android:background="@color/border_color"
                             android:layout_marginVertical="8dp" />
-
                         <TextView
                             android:id="@+id/tv_weather_status"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="📍 위치 기반 날씨 정보 로드 중..."
+                            android:text="@string/weather_loading"
                             android:textColor="@color/text_secondary"
                             android:textSize="12sp" />
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
-
                 <Button
                     android:id="@+id/btn_register"
                     android:layout_width="match_parent"
-                    android:layout_height="50dp"
+                    android:layout_height="54dp"
                     android:layout_marginTop="12dp"
                     android:backgroundTint="@color/primary"
                     android:text="AI로 기록하기"
@@ -371,130 +533,216 @@
                     android:textStyle="bold"
                     app:cornerRadius="8dp" />
 
-                <LinearLayout
-                    android:layout_width="match_parent"
+                <TextView
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:layout_marginVertical="16dp">
-                    <View
-                        android:layout_width="0dp"
-                        android:layout_height="1dp"
-                        android:layout_weight="1"
-                        android:background="@color/border_color"/>
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginHorizontal="12dp"
-                        android:text="또는 직접 입력"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="12sp"/>
-                    <View
-                        android:layout_width="0dp"
-                        android:layout_height="1dp"
-                        android:layout_weight="1"
-                        android:background="@color/border_color"/>
-                </LinearLayout>
+                    android:text="또는 직접 입력"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp"
+                    android:layout_marginTop="32dp"
+                    android:layout_marginBottom="12dp"
+                    android:layout_gravity="center_horizontal"/>
 
                 <androidx.cardview.widget.CardView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     app:cardCornerRadius="12dp"
-                    app:cardElevation="2dp">
-
+                    app:cardElevation="1dp">
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="vertical"
                         android:padding="16dp">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="✏️ 직접 입력"
-                            android:textColor="@color/text_primary"
-                            android:textSize="13sp"
-                            android:textStyle="bold"
-                            android:layout_marginBottom="12dp"/>
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="항목명"
-                            android:textColor="@color/text_secondary"
-                            android:textSize="12sp"
-                            android:layout_marginBottom="4dp"/>
                         <EditText
                             android:id="@+id/et_manual_title"
                             android:layout_width="match_parent"
-                            android:layout_height="48dp"
-                            android:hint="예: 할리스 커피 5000원"
-                            android:background="@null"
-                            android:importantForAutofill="no"
-                            android:inputType="text"
-                            android:textSize="14sp"
-                            android:paddingVertical="4dp"/>
-
-                        <View
-                            android:layout_width="match_parent"
-                            android:layout_height="1dp"
-                            android:background="@color/border_color"
-                            android:layout_marginBottom="12dp"/>
-
-                        <TextView
-                            android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="금액 (원)"
-                            android:textColor="@color/text_secondary"
-                            android:textSize="12sp"
-                            android:layout_marginBottom="4dp"/>
+                            android:hint="항목명 (예: 김치찌개)"
+                            android:textSize="14sp"
+                            android:layout_marginBottom="8dp"/>
                         <EditText
                             android:id="@+id/et_manual_amount"
                             android:layout_width="match_parent"
-                            android:layout_height="48dp"
-                            android:hint="예: 4500"
-                            android:background="@null"
-                            android:importantForAutofill="no"
+                            android:layout_height="wrap_content"
+                            android:hint="금액 (원)"
                             android:inputType="number"
                             android:textSize="14sp"
-                            android:paddingVertical="4dp"/>
-
-                        <View
-                            android:layout_width="match_parent"
-                            android:layout_height="1dp"
-                            android:background="@color/border_color"
-                            android:layout_marginBottom="12dp"/>
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="카테고리"
-                            android:textColor="@color/text_secondary"
-                            android:textSize="12sp"
-                            android:layout_marginBottom="4dp"/>
+                            android:layout_marginBottom="8dp"/>
                         <Spinner
                             android:id="@+id/spinner_manual_category"
                             android:layout_width="match_parent"
-                            android:layout_height="48dp"
-                            android:background="@null"/>
+                            android:layout_height="48dp" />
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
-
                 <Button
                     android:id="@+id/btn_manual_register"
                     android:layout_width="match_parent"
-                    android:layout_height="50dp"
+                    android:layout_height="54dp"
                     android:layout_marginTop="12dp"
-                    android:layout_marginBottom="20dp"
                     android:backgroundTint="@color/text_primary"
                     android:text="직접 입력으로 저장"
                     android:textColor="@color/white"
                     android:textStyle="bold"
                     app:cornerRadius="8dp" />
-
             </LinearLayout>
         </androidx.core.widget.NestedScrollView>
 
+        <!-- 3. 캘린더 탭 (스크롤 가능하게 수정) -->
+        <androidx.core.widget.NestedScrollView
+            android:id="@+id/container_calendar"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center"
+                    android:layout_marginBottom="16dp">
+
+                    <ImageButton
+                        android:id="@+id/btn_prev_month"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:background="?android:attr/selectableItemBackgroundBorderless"
+                        android:src="@android:drawable/ic_media_previous"
+                        app:tint="@color/text_primary" />
+
+                    <TextView
+                        android:id="@+id/tv_calendar_month"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="center"
+                        android:text="2023년 10월"
+                        android:textColor="@color/text_primary"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+
+                    <ImageButton
+                        android:id="@+id/btn_next_month"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:background="?android:attr/selectableItemBackgroundBorderless"
+                        android:src="@android:drawable/ic_media_next"
+                        app:tint="@color/text_primary" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="8dp">
+                    <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:text="일" android:textColor="#FF5252" android:textSize="12sp" />
+                    <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:text="월" android:textColor="@color/text_secondary" android:textSize="12sp" />
+                    <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:text="화" android:textColor="@color/text_secondary" android:textSize="12sp" />
+                    <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:text="수" android:textColor="@color/text_secondary" android:textSize="12sp" />
+                    <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:text="목" android:textColor="@color/text_secondary" android:textSize="12sp" />
+                    <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:text="금" android:textColor="@color/text_secondary" android:textSize="12sp" />
+                    <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:text="토" android:textColor="#448AFF" android:textSize="12sp" />
+                </LinearLayout>
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/rv_calendar"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:nestedScrollingEnabled="false"
+                    app:layoutManager="androidx.recyclerview.widget.GridLayoutManager"
+                    app:spanCount="7"
+                    tools:listitem="@layout/item_calendar_day" />
+
+                <!-- 주간 합계 요약 -->
+                <androidx.cardview.widget.CardView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="24dp"
+                    app:cardCornerRadius="16dp"
+                    app:cardElevation="2dp">
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="16dp">
+                        <TextView
+                            android:id="@+id/tv_weekly_summary_title"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="이번 주 요약"
+                            android:textColor="@color/text_primary"
+                            android:textSize="14sp"
+                            android:textStyle="bold"
+                            android:layout_marginBottom="12dp" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal">
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="주간 수입"
+                                    android:textColor="@color/text_secondary"
+                                    android:textSize="11sp" />
+                                <TextView
+                                    android:id="@+id/tv_weekly_income"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="0원"
+                                    android:textColor="@color/income"
+                                    android:textSize="15sp"
+                                    android:textStyle="bold" />
+                            </LinearLayout>
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="주간 지출"
+                                    android:textColor="@color/text_secondary"
+                                    android:textSize="11sp" />
+                                <TextView
+                                    android:id="@+id/tv_weekly_expense"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="0원"
+                                    android:textColor="@color/expense"
+                                    android:textSize="15sp"
+                                    android:textStyle="bold" />
+                            </LinearLayout>
+                        </LinearLayout>
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
+
+                <!-- 주간 요약 (날짜별 가로 달력) -->
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/rv_weekly_calendar"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:layout_marginBottom="32dp"
+                    android:orientation="horizontal"
+                    app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
+                    tools:listitem="@layout/item_weekly_day" />
+            </LinearLayout>
+        </androidx.core.widget.NestedScrollView>
+
+        <!-- 4. 내역 탭 -->
         <LinearLayout
             android:id="@+id/container_history"
             android:layout_width="match_parent"
@@ -502,23 +750,12 @@
             android:orientation="vertical"
             android:padding="16dp"
             android:visibility="gone">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="소비 기록 목록"
-                android:textColor="@color/text_primary"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:layout_marginBottom="12dp" />
-
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/rv_expense_list"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 tools:listitem="@layout/item_expense" />
         </LinearLayout>
-
     </FrameLayout>
 
     <View
@@ -537,6 +774,21 @@
         android:orientation="horizontal"
         android:gravity="center_vertical">
 
+        <!-- 홈 -->
+        <LinearLayout
+            android:id="@+id/tab_home"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:clickable="true"
+            android:focusable="true">
+            <ImageView android:id="@+id/iv_tab_home" android:layout_width="22dp" android:layout_height="22dp" android:src="@android:drawable/ic_menu_today" app:tint="@color/primary" />
+            <TextView android:id="@+id/tv_tab_home" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/tab_home" android:textColor="@color/primary" android:textSize="10sp" android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- 분석 -->
         <LinearLayout
             android:id="@+id/tab_dashboard"
             android:layout_width="0dp"
@@ -545,27 +797,12 @@
             android:orientation="vertical"
             android:gravity="center"
             android:clickable="true"
-            android:focusable="true"
-            android:background="?android:attr/selectableItemBackground">
-
-            <ImageView
-                android:id="@+id/iv_tab_dashboard"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
-                android:src="@android:drawable/ic_menu_compass"
-                app:tint="@color/primary" />
-
-            <TextView
-                android:id="@+id/tv_tab_dashboard"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:text="분석"
-                android:textColor="@color/primary"
-                android:textSize="10sp"
-                android:textStyle="bold" />
+            android:focusable="true">
+            <ImageView android:id="@+id/iv_tab_dashboard" android:layout_width="22dp" android:layout_height="22dp" android:src="@android:drawable/ic_menu_compass" app:tint="@color/text_secondary" />
+            <TextView android:id="@+id/tv_tab_dashboard" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/tab_analysis" android:textColor="@color/text_secondary" android:textSize="10sp" />
         </LinearLayout>
 
+        <!-- 추가 (가운데) -->
         <LinearLayout
             android:id="@+id/tab_add"
             android:layout_width="0dp"
@@ -574,22 +811,26 @@
             android:gravity="center"
             android:clickable="true"
             android:focusable="true">
-
-            <FrameLayout
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:background="@drawable/bg_circle_black"
-                android:gravity="center">
-
-                <ImageView
-                    android:layout_width="28dp"
-                    android:layout_height="28dp"
-                    android:layout_gravity="center"
-                    android:src="@android:drawable/ic_input_add"
-                    app:tint="@color/white" />
+            <FrameLayout android:layout_width="44dp" android:layout_height="44dp" android:background="@drawable/bg_circle_black">
+                <ImageView android:layout_width="24dp" android:layout_height="24dp" android:layout_gravity="center" android:src="@android:drawable/ic_input_add" app:tint="@color/white" />
             </FrameLayout>
         </LinearLayout>
 
+        <!-- 캘린더 -->
+        <LinearLayout
+            android:id="@+id/tab_calendar"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:clickable="true"
+            android:focusable="true">
+            <ImageView android:id="@+id/iv_tab_calendar" android:layout_width="22dp" android:layout_height="22dp" android:src="@android:drawable/ic_menu_my_calendar" app:tint="@color/text_secondary" />
+            <TextView android:id="@+id/tv_tab_calendar" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/tab_calendar" android:textColor="@color/text_secondary" android:textSize="10sp" />
+        </LinearLayout>
+
+        <!-- 내역 -->
         <LinearLayout
             android:id="@+id/tab_history"
             android:layout_width="0dp"
@@ -598,26 +839,10 @@
             android:orientation="vertical"
             android:gravity="center"
             android:clickable="true"
-            android:focusable="true"
-            android:background="?android:attr/selectableItemBackground">
-
-            <ImageView
-                android:id="@+id/iv_tab_history"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
-                android:src="@android:drawable/ic_menu_today"
-                app:tint="@color/text_secondary" />
-
-            <TextView
-                android:id="@+id/tv_tab_history"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:text="내역"
-                android:textColor="@color/text_secondary"
-                android:textSize="10sp" />
+            android:focusable="true">
+            <ImageView android:id="@+id/iv_tab_history" android:layout_width="22dp" android:layout_height="22dp" android:src="@android:drawable/ic_menu_sort_by_size" app:tint="@color/text_secondary" />
+            <TextView android:id="@+id/tv_tab_history" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/tab_history" android:textColor="@color/text_secondary" android:textSize="10sp" />
         </LinearLayout>
-
     </LinearLayout>
 
     <FrameLayout
@@ -628,7 +853,6 @@
         android:clickable="true"
         android:focusable="true"
         android:visibility="gone">
-
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -638,26 +862,8 @@
             android:gravity="center"
             android:orientation="vertical"
             android:padding="24dp">
-
-            <ImageView
-                android:layout_width="60dp"
-                android:layout_height="60dp"
-                android:src="@drawable/app_logo"
-                android:layout_marginBottom="16dp"/>
-
-            <ProgressBar
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:indeterminateTint="@color/primary" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:text="Gemini가 지출 문장을 파싱하는 중..."
-                android:textColor="@color/text_primary"
-                android:textStyle="bold" />
+            <ProgressBar android:layout_width="wrap_content" android:layout_height="wrap_content" android:indeterminateTint="@color/primary" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:text="@string/ai_analyzing" android:textColor="@color/text_primary" android:textStyle="bold" />
         </LinearLayout>
     </FrameLayout>
-
 </RelativeLayout>

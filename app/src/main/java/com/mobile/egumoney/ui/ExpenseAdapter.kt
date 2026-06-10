@@ -36,7 +36,7 @@ class ExpenseAdapter(
 
             // 🎯 리스트의 카테고리를 레포지토리와 동일한 기준으로 표시
             val category = expense.category.trim()
-            val emojis = mapOf("식비" to "🍴", "교통비" to "🚌", "쇼핑" to "🛍️", "문화" to "🎬", "투자" to "📈", "기타" to "🏷️")
+            val emojis = mapOf("식비" to "🍴", "교통비" to "🚌", "쇼핑" to "🛍️", "문화" to "🎬", "투자" to "📈", "수입" to "💰", "기타" to "🏷️")
             val emoji = emojis[category] ?: "🏷️"
             binding.tvItemCategory.text = "$emoji $category"
 
@@ -47,12 +47,29 @@ class ExpenseAdapter(
                 "쇼핑" -> R.color.cat_shopping
                 "문화" -> R.color.cat_culture
                 "투자" -> R.color.cat_investment
+                "수입" -> R.color.income
                 else -> R.color.cat_etc
             }
-            binding.tvItemCategory.setBackgroundColor(ContextCompat.getColor(context, catColorRes))
+            
+            val backgroundDrawable = ContextCompat.getDrawable(context, R.drawable.bg_category_tag)?.mutate()
+            backgroundDrawable?.setTint(ContextCompat.getColor(context, catColorRes))
+            binding.tvItemCategory.background = backgroundDrawable
 
             binding.btnItemEdit.setOnClickListener { onEditClick(expense) }
             binding.btnItemDelete.setOnClickListener { onDeleteClick(expense) }
+
+            // 🎯 기록 시간 표시 (yyyy-MM-dd HH:mm -> HH:mm)
+            val time = try {
+                if (expense.date.length >= 16) {
+                    expense.date.substring(11, 16)
+                } else {
+                    val parts = expense.date.split(" ")
+                    if (parts.size >= 2) parts[1] else "--:--"
+                }
+            } catch (e: Exception) {
+                "--:--"
+            }
+            binding.tvItemRecordedTime.text = time
         }
     }
 

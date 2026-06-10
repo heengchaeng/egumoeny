@@ -7,14 +7,24 @@ import kotlinx.coroutines.flow.Flow
 import java.text.SimpleDateFormat
 import java.util.*
 import org.json.JSONObject
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
 
 class ExpenseRepository(private val expenseDao: ExpenseDao) {
 
+    private val weatherService: WeatherService by lazy {
+        Retrofit.Builder()
+            .baseUrl("https://api.openweathermap.org/")
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(WeatherService::class.java)
+    }
+
     val allExpenses: Flow<List<ExpenseEntity>> = expenseDao.getAllExpenses()
 
-    // ✅ [업데이트] 최신 모델로 변경: gemini-pro에서 gemini-1.5-flash-latest로 업데이트하여 404 에러를 해결합니다.
+    // ✅ [수정] SDK 0.9.0에서 가장 안정적인 gemini-1.0-pro 모델 사용 (404 에러 방지)
     private val generativeModel = GenerativeModel(
-        modelName = "gemini-1.5-flash-latest",
+        modelName = "gemini-1.0-pro",
         apiKey = BuildConfig.GEMINI_API_KEY
     )
 
@@ -113,6 +123,11 @@ class ExpenseRepository(private val expenseDao: ExpenseDao) {
     }
 
     suspend fun fetchWeather(lat: Double, lon: Double): WeatherResponse? {
-        return null 
+        return try {
+            weatherService.getCurrentWeather(lat, lon, BuildConfig.WEATHER_API_KEY)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
     }
 }

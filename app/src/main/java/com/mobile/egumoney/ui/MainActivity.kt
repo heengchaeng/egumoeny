@@ -22,6 +22,10 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.github.mikephil.charting.formatter.ValueFormatter
 import com.github.mikephil.charting.data.*
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
+import com.google.android.gms.location.Priority
+import com.google.android.gms.tasks.CancellationTokenSource
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import com.mobile.egumoney.R
@@ -32,6 +36,7 @@ import com.mobile.egumoney.viewmodel.ExpenseViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import com.mobile.egumoney.util.NotificationHelper
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.*
@@ -42,6 +47,7 @@ class MainActivity : AppCompatActivity() {
     private val viewModel: ExpenseViewModel by viewModels()
     private lateinit var expenseAdapter: ExpenseAdapter
     private lateinit var fusedLocationClient: FusedLocationProviderClient
+    private lateinit var notificationHelper: NotificationHelper
 
     private var currentWeatherStatus = "☀️ 맑음"
     private var isBudgetExceededNotified = false
@@ -69,6 +75,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+        notificationHelper = NotificationHelper(this)
 
         setupRecyclerView()
         setupListeners()
@@ -175,7 +182,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // 🚨 [수정] 예산 현황 리스트 정렬 레이아웃 균형 조정 및 파스텔 색상 적용
+    // 🚨 [수정] 예산 현황 리스트 및 일일 권장 소비액 계산 추가
     private fun updateBudgetStatus(expenses: List<ExpenseEntity>) {
         val currentMonthStr = SimpleDateFormat("yyyy-MM", Locale.getDefault()).format(Date())
         val monthlyExpenses = expenses.filter { it.date.startsWith(currentMonthStr) }
@@ -184,10 +191,27 @@ class MainActivity : AppCompatActivity() {
         val totalBudget = viewModel.getTotalBudget()
         val remaining = totalBudget - totalSpent
 
+        // 남은 일수 계산
+        val calendar = Calendar.getInstance()
+        val today = calendar.get(Calendar.DAY_OF_MONTH)
+        val lastDay = calendar.getActualMaximum(Calendar.DAY_OF_MONTH)
+        val remainingDays = (lastDay - today + 1).coerceAtLeast(1)
+        val dailyAllowance = if (remaining > 0) remaining / remainingDays else 0
+
         val statusBuilder = android.text.SpannableStringBuilder()
         
         statusBuilder.append("💰 이번 달 총 예산 :   ${moneyFormatter.format(totalBudget)}원\n")
         statusBuilder.append("📉 총 남은 금액     :   ${moneyFormatter.format(remaining)}원\n")
+        
+        val allowanceStart = statusBuilder.length
+        statusBuilder.append("📅 일일 권장 소비   :   ${moneyFormatter.format(dailyAllowance)}원 (남은 ${remainingDays}일)\n")
+        statusBuilder.setSpan(
+            android.text.style.ForegroundColorSpan(Color.parseColor("#4CAF50")),
+            allowanceStart,
+            statusBuilder.length,
+            android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+        )
+
         statusBuilder.append("\n━━━━━━━━━━━━━━━━━━━━━━\n")
         statusBuilder.append("📂 [카테고리별 예산 현황]\n\n")
 
@@ -227,13 +251,26 @@ class MainActivity : AppCompatActivity() {
         binding.tvBudgetStatus.text = statusBuilder
         
         if (totalBudget > 0 && remaining < 0) {
-            // 전체 예산 초과 시에도 가독성을 위해 테두리나 배경보다는 텍스트 색상 유지
             if (!isBudgetExceededNotified) {
+                // 🚨 [신규] 푸시 알림 발송
+                notificationHelper.showBudgetExceededNotification(
+                    "🚨 예산 초과 알림",
+                    "이번 달 총 예산을 ${moneyFormatter.format(Math.abs(remaining))}원 초과했습니다!"
+                )
                 Toast.makeText(this, "🚨 설정하신 총 예산을 초과했습니다!", Toast.LENGTH_LONG).show()
                 isBudgetExceededNotified = true
             }
         } else {
             isBudgetExceededNotified = false
+        }
+
+        // 카테고리별 초과 알림 (개별 카테고리 알림도 추가하고 싶다면 여기서 구현 가능)
+        for (cat in categories) {
+            val catLimit = viewModel.getBudgetLimit(cat)
+            val catSpent = monthlyExpenses.filter { it.category.trim() == cat.trim() }.sumOf { it.amount }
+            if (catLimit > 0 && catSpent > catLimit) {
+                // 카테고리별 알림은 너무 자주 올 수 있으므로 필요 시 추가 로직 필요
+            }
         }
     }
 
@@ -404,18 +441,52 @@ class MainActivity : AppCompatActivity() {
 
     @SuppressLint("MissingPermission")
     private fun loadCurrentWeather() {
-        fusedLocationClient.lastLocation.addOnSuccessListener { location ->
-            if (location != null) {
-                CoroutineScope(Dispatchers.Main).launch {
-                    val weatherResp = viewModel.fetchWeather(location.latitude, location.longitude)
-                    if (weatherResp != null) {
-                        currentWeatherStatus = "${weatherResp.weatherList[0].description} (${weatherResp.mainInfo.temp}℃)"
-                        binding.tvWeatherStatus.text = "📍 날씨: $currentWeatherStatus"
+        binding.tvWeatherStatus.text = "📍 위치 확인 중..."
+        
+        // 1. 마지막 위치 즉시 시도 (빠른 응답)
+        fusedLocationClient.lastLocation.addOnSuccessListener { lastLoc ->
+            if (lastLoc != null) {
+                loadWeatherDirectly(lastLoc.latitude, lastLoc.longitude)
+            }
+            
+            // 2. 최신 위치 요청 (정확도 향상)
+            val cts = CancellationTokenSource()
+            fusedLocationClient.getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, cts.token)
+                .addOnSuccessListener { location ->
+                    if (location != null) {
+                        loadWeatherDirectly(location.latitude, location.longitude)
+                    } else if (lastLoc == null) {
+                        binding.tvWeatherStatus.text = "📍 날씨: 위치 정보 없음"
                     }
                 }
+                .addOnFailureListener {
+                    if (lastLoc == null) {
+                        binding.tvWeatherStatus.text = "📍 날씨: 위치 획득 실패"
+                    }
+                }
+        }
+    }
+
+    private fun loadWeatherDirectly(lat: Double, lon: Double) {
+        lifecycleScope.launch {
+            try {
+                val weatherResp = viewModel.fetchWeather(lat, lon)
+                if (weatherResp != null && weatherResp.weatherList.isNotEmpty()) {
+                    val weatherDesc = weatherResp.weatherList[0].description
+                    val temp = weatherResp.mainInfo.temp.toInt()
+                    currentWeatherStatus = "$weatherDesc (${temp}℃)"
+                    binding.tvWeatherStatus.text = "📍 날씨: $currentWeatherStatus"
+                } else {
+                    binding.tvWeatherStatus.text = "📍 날씨: 정보 로드 실패"
+                    currentWeatherStatus = "날씨 정보 없음"
+                }
+            } catch (e: Exception) {
+                binding.tvWeatherStatus.text = "📍 날씨: 로드 오류"
+                currentWeatherStatus = "오류"
             }
         }
     }
+
 
     private fun showEditDialog(expense: ExpenseEntity) {
         val dialogBinding = DialogEditExpenseBinding.inflate(layoutInflater)

@@ -114,12 +114,22 @@
 
                         <TextView
                             android:id="@+id/tv_ai_summary"
-                            android:layout_width="match_parent"
+                            android:layout_width="0dp"
                             android:layout_height="wrap_content"
+                            android:layout_weight="1"
                             android:text="데이터를 분석하여 따뜻한 응원을 준비 중입니다..."
                             android:textColor="@color/text_primary"
                             android:textSize="14sp"
                             android:lineSpacingExtra="4dp" />
+
+                        <ProgressBar
+                            android:id="@+id/pb_ai_summary"
+                            style="?android:attr/progressBarStyleSmall"
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:layout_marginStart="8dp"
+                            android:visibility="gone"
+                            android:indeterminateTint="@color/primary" />
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
 
@@ -407,15 +417,28 @@
                                 android:textColor="@color/text_primary"
                                 android:textSize="14sp"
                                 android:textStyle="bold" />
-                            <TextView
-                                android:id="@+id/tv_ai_feedback"
+                            <RelativeLayout
                                 android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="4dp"
-                                android:lineSpacingMultiplier="1.2"
-                                android:text="@string/ai_feedback_loading"
-                                android:textColor="@color/text_primary"
-                                android:textSize="12sp" />
+                                android:layout_height="wrap_content">
+                                <TextView
+                                    android:id="@+id/tv_ai_feedback"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="4dp"
+                                    android:lineSpacingMultiplier="1.2"
+                                    android:text="@string/ai_feedback_loading"
+                                    android:textColor="@color/text_primary"
+                                    android:textSize="12sp" />
+
+                                <ProgressBar
+                                    android:id="@+id/pb_ai_feedback"
+                                    style="?android:attr/progressBarStyleSmall"
+                                    android:layout_width="16dp"
+                                    android:layout_height="16dp"
+                                    android:layout_centerInParent="true"
+                                    android:visibility="gone"
+                                    android:indeterminateTint="@color/primary" />
+                            </RelativeLayout>
                         </LinearLayout>
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>

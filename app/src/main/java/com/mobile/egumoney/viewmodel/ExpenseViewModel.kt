@@ -6,6 +6,7 @@ import androidx.lifecycle.*
 import androidx.room.Room
 import com.mobile.egumoney.data.*
 import com.mobile.egumoney.model.WeatherResponse
+import com.mobile.egumoney.util.NotificationHelper
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
@@ -15,11 +16,14 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
     private val repository: ExpenseRepository
     val allExpenses: LiveData<List<ExpenseEntity>>
     
-    private val _aiFeedback = MutableLiveData<String>()
-    val aiFeedback: LiveData<String> = _aiFeedback
+    private val _aiGreeting = MutableLiveData<String>()
+    val aiGreeting: LiveData<String> = _aiGreeting
 
-    private val _isLoading = MutableLiveData<Boolean>(false)
-    val isLoading: LiveData<Boolean> = _isLoading
+    private val _aiReport = MutableLiveData<String>()
+    val aiReport: LiveData<String> = _aiReport
+
+    private val _isAiLoading = MutableLiveData<Boolean>(false)
+    val isAiLoading: LiveData<Boolean> = _isAiLoading
 
     private val sharedPrefs = application.getSharedPreferences("budget_prefs", Context.MODE_PRIVATE)
 
@@ -49,53 +53,63 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun addExpenseFromNaturalLanguage(sentence: String, weather: String) = viewModelScope.launch {
-        _isLoading.value = true
+        _isAiLoading.value = true
         try {
             val parsed = repository.parseExpense(sentence, weather)
             repository.insert(parsed)
             generateAiFeedback()
         } finally {
-            _isLoading.value = false
+            _isAiLoading.value = false
         }
     }
 
     fun generateAiFeedback() = viewModelScope.launch {
-        val expenses = allExpenses.value ?: emptyList()
-        val currentMonth = SimpleDateFormat("yyyy-MM", Locale.getDefault()).format(Date())
-        val monthlyExpenses = expenses.filter { it.date.startsWith(currentMonth) }
-        
-        val totalSpent = monthlyExpenses.filter { it.category.trim() != "수입" }.sumOf { it.amount }
-        val totalIncome = monthlyExpenses.filter { it.category.trim() == "수입" }.sumOf { it.amount }
-        
-        // 지출만 필터링
-        val actualExpenses = monthlyExpenses.filter { it.category.trim() != "수입" }
-        
-        // 1. 카테고리별 요약
-        val categorySummary = actualExpenses
-            .groupBy { it.category.trim() }
-            .map { "${it.key}: ${it.value.sumOf { e -> e.amount }}원" }
-            .joinToString(", ")
+        _isAiLoading.value = true
+        try {
+            val expenses = repository.getExpensesSync()
+            val currentMonth = SimpleDateFormat("yyyy-MM", Locale.getDefault()).format(Date())
+            val monthlyExpenses = expenses.filter { it.date.startsWith(currentMonth) }
             
-        // 2. 가장 큰 지출 항목 찾기
-        val maxExpense = actualExpenses.maxByOrNull { it.amount }
-        val maxExpenseText = if (maxExpense != null) "가장 큰 지출은 '${maxExpense.title}'에 ${maxExpense.amount}원이야." else ""
+            if (monthlyExpenses.isEmpty()) {
+                val emptyMsg = "반가워요! ${getUserNickname()}님, 첫 지출을 기록해 보시면 분석을 시작할게요! ✨"
+                _aiGreeting.value = emptyMsg
+                _aiReport.value = emptyMsg
+                return@launch
+            }
 
-        // 3. 최근 지출 5개 내역
-        val recentHistory = actualExpenses.takeLast(5).reversed()
-            .joinToString(", ") { "${it.title}(${it.amount}원)" }
-
-        val summary = """
-            - 사용자 닉네임: ${getUserNickname()}
-            - 이번 달 총 수입: ${totalIncome}원
-            - 이번 달 총 지출: ${totalSpent}원 (예산: ${getTotalBudget()}원)
-            - 카테고리별: [$categorySummary]
-            - $maxExpenseText
-            - 최근 지출 내역: [$recentHistory]
+            val totalSpent = monthlyExpenses.filter { it.category.trim() != "수입" }.sumOf { it.amount }
+            val totalIncome = monthlyExpenses.filter { it.category.trim() == "수입" }.sumOf { it.amount }
+            val actualExpenses = monthlyExpenses.filter { it.category.trim() != "수입" }
             
-            이 내역들을 보고 사용자의 소비 습관을 분석해서 따뜻한 응원과 현실적인 조언을 섞어서 말해줘.
-        """.trimIndent()
+            val categorySummary = actualExpenses
+                .groupBy { it.category.trim() }
+                .map { "${it.key}: ${it.value.sumOf { e -> e.amount }}원" }
+                .joinToString(", ")
+                
+            val maxExpense = actualExpenses.maxByOrNull { it.amount }
+            val maxExpenseText = if (maxExpense != null) "가장 큰 지출은 '${maxExpense.title}'에 ${maxExpense.amount}원이야." else ""
+            val recentHistory = actualExpenses.take(5).joinToString(", ") { "${it.title}(${it.amount}원)" }
 
-        _aiFeedback.value = repository.getAiFeedback(summary)
+            val summary = """
+                - 사용자 닉네임: ${getUserNickname()}
+                - 이번 달 총 수입: ${totalIncome}원
+                - 이번 달 총 지출: ${totalSpent}원 (예산: ${getTotalBudget()}원)
+                - 카테고리별: [$categorySummary]
+                - $maxExpenseText
+                - 최근 지출 내역: [$recentHistory]
+            """.trimIndent()
+
+            // 두 가지 타입의 피드백을 동시에 생성 (또는 필요할 때 각각 호출 가능)
+            launch { _aiGreeting.value = repository.getAiFeedback(summary, "GREETING") }
+            launch { _aiReport.value = repository.getAiFeedback(summary, "REPORT") }
+            
+        } catch (e: Exception) {
+            e.printStackTrace()
+            _aiGreeting.value = "🤖 언제나 당신의 현명한 소비 생활을 응원합니다! ✨"
+            _aiReport.value = "🤖 지출 내역을 분석하는 데 문제가 발생했어요. 하지만 아껴 쓰시는 모습 보기 좋습니다!"
+        } finally {
+            _isAiLoading.value = false
+        }
     }
 
     fun setTotalBudget(amount: Int) {
@@ -104,11 +118,32 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
 
     fun getTotalBudget(): Int = sharedPrefs.getInt("total_budget", 0)
 
+    fun getBudgetLimit(category: String): Int = sharedPrefs.getInt("budget_$category", 0)
+
     fun setBudgetLimit(category: String, amount: Int) {
         sharedPrefs.edit().putInt("budget_$category", amount).apply()
     }
 
-    fun getBudgetLimit(category: String): Int = sharedPrefs.getInt("budget_$category", 0)
+    private var lastBudgetExceededNotifiedDate: String? = null
+
+    fun updateBudgetStatus(expenses: List<ExpenseEntity>, context: Context, notificationHelper: NotificationHelper) {
+        val currentMonthStr = SimpleDateFormat("yyyy-MM", Locale.US).format(Date())
+        val todayStr = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+        
+        val monthlyExpenses = expenses.filter { it.date.startsWith(currentMonthStr) }
+        val totalSpent = monthlyExpenses.filter { it.category.trim() != "수입" }.sumOf { it.amount }
+        val totalBudget = getTotalBudget()
+
+        if (totalBudget > 0 && totalSpent > totalBudget) {
+            if (lastBudgetExceededNotifiedDate != todayStr) {
+                notificationHelper.showBudgetExceededNotification(
+                    "🚨 예산 초과 알림",
+                    "이번 달 총 예산을 초과했습니다! 현재 지출: ${totalSpent}원"
+                )
+                lastBudgetExceededNotifiedDate = todayStr
+            }
+        }
+    }
 
     fun getUserNickname(): String {
         var nickname = sharedPrefs.getString("user_nickname", null)

@@ -237,13 +237,22 @@ class MainActivity : AppCompatActivity() {
             updateBudgetStatus(expenses)
             updateCalendar(expenses)
             updateAssetInfo(expenses)
+            viewModel.updateBudgetStatus(expenses, this, notificationHelper)
         }
-        viewModel.aiFeedback.observe(this) { 
-            binding.tvAiFeedback.text = it 
-            binding.tvAiSummary.text = it
+        viewModel.aiGreeting.observe(this) { 
+            binding.tvAiSummary.text = it 
         }
-        viewModel.isLoading.observe(this) { isLoading ->
-            binding.layoutLoading.visibility = if (isLoading) View.VISIBLE else View.GONE
+        viewModel.aiReport.observe(this) {
+            binding.tvAiFeedback.text = it
+        }
+        viewModel.isAiLoading.observe(this) { isLoading ->
+            binding.pbAiSummary.visibility = if (isLoading) View.VISIBLE else View.GONE
+            binding.pbAiFeedback.visibility = if (isLoading) View.VISIBLE else View.GONE
+            
+            // 자연어 입력 시에만 전체 화면 로딩을 사용하거나, 
+            // 아예 제거하고 카드 내 로딩만 보여줄 수도 있습니다.
+            // 여기서는 카드 내 로딩으로 대체하므로 전체 로딩은 숨깁니다.
+            binding.layoutLoading.visibility = View.GONE
         }
     }
 
@@ -268,7 +277,7 @@ class MainActivity : AppCompatActivity() {
         binding.pbBudget.progress = percent.coerceIn(0, 100)
         binding.tvBudgetPercentage.text = if (totalBudget == 0 && totalSpent > 0) "초과!" else "$percent%" 
         
-        if (percent >= 100 || (totalBudget == 0 && totalSpent > 0)) {
+        if (percent >= 100) {
             binding.tvBudgetPercentage.setTextColor(ContextCompat.getColor(this, R.color.expense))
             binding.tvBudgetPercentage.setTypeface(null, android.graphics.Typeface.BOLD)
             binding.pbBudget.progressTintList = android.content.res.ColorStateList.valueOf(ContextCompat.getColor(this, R.color.expense))
@@ -331,7 +340,7 @@ class MainActivity : AppCompatActivity() {
                 pbBudget.progress = progress.coerceIn(0, 100) 
 
                 if (catRemaining < 0) {
-                    tvAmount.text = "초과 ${moneyFormatter.format(Math.abs(catRemaining))}원 🚨"
+                    tvAmount.text = "초과 ${moneyFormatter.format(kotlin.math.abs(catRemaining))}원 🚨"
                     tvAmount.setTextColor(ContextCompat.getColor(this, R.color.expense))
                 } else {
                     tvAmount.text = "남음 ${moneyFormatter.format(catRemaining)}원"
@@ -346,7 +355,7 @@ class MainActivity : AppCompatActivity() {
             if (!isBudgetExceededNotified) {
                 notificationHelper.showBudgetExceededNotification(
                     "🚨 예산 초과 알림",
-                    "이번 달 총 예산을 ${moneyFormatter.format(Math.abs(remaining))}원 초과했습니다!"
+                    "이번 달 총 예산을 ${moneyFormatter.format(kotlin.math.abs(remaining))}원 초과했습니다!"
                 )
                 Toast.makeText(this, "🚨 설정하신 총 예산을 초과했습니다!", Toast.LENGTH_LONG).show()
                 isBudgetExceededNotified = true
@@ -423,7 +432,7 @@ class MainActivity : AppCompatActivity() {
         val calendar = Calendar.getInstance()
         
         val dates = mutableListOf<String>()
-        for (i in 0 until 7) {
+        repeat(7) {
             dates.add(sdf.format(calendar.time))
             calendar.add(Calendar.DAY_OF_YEAR, -1)
         }
@@ -505,7 +514,7 @@ class MainActivity : AppCompatActivity() {
         
         val weeklyDates = mutableListOf<Date>()
         val weekStart = calendar.time
-        for (i in 0..6) {
+        repeat(7) {
             weeklyDates.add(calendar.time)
             calendar.add(Calendar.DAY_OF_WEEK, 1)
         }
@@ -525,7 +534,7 @@ class MainActivity : AppCompatActivity() {
                 val datePart = if (it.date.length >= 10) it.date.substring(0, 10) else it.date
                 val expenseDate = sdf.parse(datePart)
                 expenseDate != null && !expenseDate.before(weekStart) && !expenseDate.after(weekEnd)
-            } catch (e: Exception) {
+            } catch (ignored: Exception) {
                 false
             }
         }
@@ -646,6 +655,10 @@ class MainActivity : AppCompatActivity() {
         binding.containerAdd.visibility = if (tabIndex == 2) View.VISIBLE else View.GONE
         binding.containerCalendar.visibility = if (tabIndex == 3) View.VISIBLE else View.GONE
         binding.containerHistory.visibility = if (tabIndex == 4) View.VISIBLE else View.GONE
+
+        if (tabIndex == 1) {
+            viewModel.generateAiFeedback()
+        }
 
         updateAddTabUI()
 

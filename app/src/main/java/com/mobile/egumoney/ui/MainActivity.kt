@@ -2,7 +2,6 @@ package com.mobile.egumoney.ui
 
 import android.Manifest
 import android.annotation.SuppressLint
-import android.app.AlertDialog
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.os.Build
@@ -13,31 +12,36 @@ import android.text.TextWatcher
 import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.EditText
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import android.text.SpannableStringBuilder
-import android.text.Spanned
-import android.text.style.ForegroundColorSpan
-import android.widget.TextView
 import androidx.core.content.ContextCompat
-import androidx.recyclerview.widget.LinearLayoutManager
-import com.github.mikephil.charting.formatter.ValueFormatter
-import com.github.mikephil.charting.data.*
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.launch
-import com.google.android.gms.location.Priority
-import com.google.android.gms.tasks.CancellationTokenSource
+import androidx.recyclerview.widget.LinearLayoutManager
+import com.github.mikephil.charting.components.Legend
+import com.github.mikephil.charting.components.XAxis
+import com.github.mikephil.charting.data.BarData
+import com.github.mikephil.charting.data.BarDataSet
+import com.github.mikephil.charting.data.BarEntry
+import com.github.mikephil.charting.data.PieData
+import com.github.mikephil.charting.data.PieDataSet
+import com.github.mikephil.charting.data.PieEntry
+import com.github.mikephil.charting.formatter.ValueFormatter
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
+import com.google.android.gms.tasks.CancellationTokenSource
 import com.mobile.egumoney.R
 import com.mobile.egumoney.data.ExpenseEntity
 import com.mobile.egumoney.databinding.ActivityMainBinding
 import com.mobile.egumoney.databinding.DialogEditExpenseBinding
-import com.mobile.egumoney.viewmodel.ExpenseViewModel
 import com.mobile.egumoney.util.NotificationHelper
-import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import com.mobile.egumoney.viewmodel.ExpenseViewModel
+import kotlinx.coroutines.launch
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.*
@@ -57,6 +61,7 @@ class MainActivity : AppCompatActivity() {
     private var currentWeatherStatus = "☀️ 맑음"
     private var isBudgetExceededNotified = false
     private val moneyFormatter = DecimalFormat("#,###")
+    private var isIncomeMode = false
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -192,6 +197,37 @@ class MainActivity : AppCompatActivity() {
         binding.tabAdd.setOnClickListener { switchTab(2) }
         binding.tabCalendar.setOnClickListener { switchTab(3) }
         binding.tabHistory.setOnClickListener { switchTab(4) }
+
+        binding.flTabAddBg.setOnClickListener {
+            toggleAddMode()
+        }
+    }
+
+    private fun toggleAddMode() {
+        isIncomeMode = !isIncomeMode
+        updateAddTabUI()
+        if (binding.containerAdd.visibility == View.VISIBLE) {
+            val modeText = if (isIncomeMode) "수입 모드" else "지출 모드"
+            Toast.makeText(this, "${modeText}로 전환되었습니다.", Toast.LENGTH_SHORT).show()
+        } else {
+            switchTab(2)
+        }
+    }
+
+    private fun updateAddTabUI() {
+        if (isIncomeMode) {
+            binding.flTabAddBg.setBackgroundResource(R.drawable.bg_circle_blue)
+            binding.ivTabAdd.setImageResource(android.R.drawable.ic_input_add)
+            binding.btnRegister.backgroundTintList = android.content.res.ColorStateList.valueOf(ContextCompat.getColor(this, R.color.income))
+            binding.etExpenseInput.hint = "수입 내역을 입력하세요 (예: 월급 300만원)"
+            binding.spinnerManualCategory.setSelection(5) // '수입' category index
+        } else {
+            binding.flTabAddBg.setBackgroundResource(R.drawable.bg_circle_black)
+            binding.ivTabAdd.setImageResource(android.R.drawable.ic_input_add)
+            binding.btnRegister.backgroundTintList = android.content.res.ColorStateList.valueOf(ContextCompat.getColor(this, R.color.primary))
+            binding.etExpenseInput.hint = getString(R.string.input_hint)
+            binding.spinnerManualCategory.setSelection(0) // Default '식비' or other
+        }
     }
 
     private fun observeViewModel() {
@@ -219,12 +255,12 @@ class MainActivity : AppCompatActivity() {
         val totalBudget = viewModel.getTotalBudget()
         val remaining = totalBudget - totalSpent
 
-        // 🎯 예산 초과 시에도 실제 퍼센트가 표시되도록 계산
+        // 🎯 예산 초과 시에도 실제 퍼센트가 표시되도록 계산 (100% 한도 없음)
         val percent = if (totalBudget > 0) {
             (totalSpent.toDouble() / totalBudget.toDouble() * 100).toInt()
         } else if (totalSpent > 0) {
-            // 예산이 0인데 지출이 있으면, 지출액 그 자체를 퍼센트처럼 보여주거나 매우 높은 수치로 표현 (여기선 100 이상으로 표현되게 유도)
-            if (totalSpent > 0) (totalSpent / 1000).coerceAtLeast(100) else 0 
+            // 예산이 0원인데 지출이 있는 경우 100% 이상임을 표시
+            100
         } else {
             0
         }
@@ -275,23 +311,14 @@ class MainActivity : AppCompatActivity() {
                 val progress = if (catLimit > 0) {
                     ((catSpent.toDouble() / catLimit.toDouble()) * 100.0).toInt()
                 } else if (catSpent > 0) {
-                    // 예산이 0원인데 지출이 있는 경우, 100% 이상임을 나타내기 위해 지출액 기반으로 임의 계산하거나 100으로 고정
                     100
                 } else {
                     0
                 }
                 
-                // 🎯 텍스트는 실제 계산된 progress를 그대로 표시 (100% 한도 없음)
-                if (catLimit == 0 && catSpent > 0) {
-                    // 예산이 0원인데 지출이 있다면, 지출 금액 자체를 강조하거나 무한대 표시 대신 큰 수치를 보여줄 수 있음
-                    // 여기서는 사용자의 요청대로 '몇 퍼센트'인지를 보여주기 위해 catLimit가 0일 때도 지출이 있으면 최소 100% 이상으로 표시
-                    tvPercent.text = "${(catSpent / 100).coerceAtLeast(100)}%"
-                } else {
-                    tvPercent.text = "${progress}%"
-                }
+                tvPercent.text = "$progress%"
                 
-                // 🎨 100% 초과 시 빨간색 및 볼드 처리
-                if (progress >= 100 || (catLimit == 0 && catSpent > 0)) {
+                if (progress >= 100) {
                     tvPercent.setTextColor(ContextCompat.getColor(this, R.color.expense))
                     tvPercent.setTypeface(null, android.graphics.Typeface.BOLD)
                     pbBudget.progressTintList = android.content.res.ColorStateList.valueOf(ContextCompat.getColor(this, R.color.expense))
@@ -301,7 +328,7 @@ class MainActivity : AppCompatActivity() {
                     pbBudget.progressTintList = android.content.res.ColorStateList.valueOf(ContextCompat.getColor(this, R.color.primary))
                 }
 
-                pbBudget.progress = progress.coerceIn(0, 100) // 프로그레스 바 시각화는 100까지 꽉 차게 표시
+                pbBudget.progress = progress.coerceIn(0, 100) 
 
                 if (catRemaining < 0) {
                     tvAmount.text = "초과 ${moneyFormatter.format(Math.abs(catRemaining))}원 🚨"
@@ -355,42 +382,87 @@ class MainActivity : AppCompatActivity() {
                 "쇼핑" -> R.color.cat_shopping
                 "문화" -> R.color.cat_culture
                 "투자" -> R.color.cat_investment
-                "수입" -> R.color.income
+                "기타" -> R.color.cat_etc
+                else -> R.color.text_secondary
+            }
+            ContextCompat.getColor(this, colorRes)
+        }
+
+        pieDataSet.valueTextSize = 11f
+        pieDataSet.valueTextColor = Color.BLACK
+        pieDataSet.sliceSpace = 2f
+        
+        val pieData = PieData(pieDataSet)
+        binding.pieChart.data = pieData
+        binding.pieChart.description.isEnabled = false
+        binding.pieChart.legend.isEnabled = true
+        binding.pieChart.legend.verticalAlignment = Legend.LegendVerticalAlignment.BOTTOM
+        binding.pieChart.legend.horizontalAlignment = Legend.LegendHorizontalAlignment.CENTER
+        binding.pieChart.setUsePercentValues(true)
+        binding.pieChart.setEntryLabelColor(Color.BLACK)
+        binding.pieChart.setHoleColor(Color.TRANSPARENT)
+        binding.pieChart.animateY(1000)
+        binding.pieChart.invalidate()
+
+        // Bar Chart (주간 지출 추이 - 스택 바 차트로 카테고리 색상 적용)
+        val displayCategories = listOf("식비", "교통비", "쇼핑", "문화", "투자", "기타")
+        val categoryColors = displayCategories.map { cat ->
+            val colorRes = when (cat) {
+                "식비" -> R.color.cat_food
+                "교통비" -> R.color.cat_transport
+                "쇼핑" -> R.color.cat_shopping
+                "문화" -> R.color.cat_culture
+                "투자" -> R.color.cat_investment
                 else -> R.color.cat_etc
             }
             ContextCompat.getColor(this, colorRes)
         }
-        pieDataSet.valueTextSize = 13f
-        pieDataSet.valueTextColor = Color.DKGRAY
-        pieDataSet.valueFormatter = object : ValueFormatter() {
-            override fun getFormattedValue(value: Float): String {
-                return moneyFormatter.format(value.toInt()) + "원"
-            }
-        }
-        
-        binding.pieChart.data = PieData(pieDataSet)
-        binding.pieChart.description.isEnabled = false
-        binding.pieChart.legend.isEnabled = false
-        binding.pieChart.animateXY(600, 600)
-        binding.pieChart.invalidate()
 
+        val barEntries = mutableListOf<BarEntry>()
         val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-        val barEntries = ArrayList<BarEntry>()
-        for (i in 0..6) {
-            val dayCalendar = Calendar.getInstance()
-            dayCalendar.add(Calendar.DAY_OF_YEAR, -(6 - i))
-            val dateStr = sdf.format(dayCalendar.time)
-            barEntries.add(BarEntry(i.toFloat(), expenses.filter { it.date.startsWith(dateStr) }.sumOf { it.amount }.toFloat()))
+        val calendar = Calendar.getInstance()
+        
+        val dates = mutableListOf<String>()
+        for (i in 0 until 7) {
+            dates.add(sdf.format(calendar.time))
+            calendar.add(Calendar.DAY_OF_YEAR, -1)
         }
-        val barDataSet = BarDataSet(barEntries, "지출 추이")
-        barDataSet.color = Color.parseColor("#A7CBD9")
-        barDataSet.valueFormatter = object : ValueFormatter() {
+        val reversedDates = dates.reversed()
+
+        reversedDates.forEachIndexed { index, dateStr ->
+            val dayExpenses = monthlyExpenses.filter { it.date.startsWith(dateStr) }
+            val values = FloatArray(displayCategories.size)
+            displayCategories.forEachIndexed { catIndex, cat ->
+                values[catIndex] = dayExpenses.filter { it.category.trim() == cat }.sumOf { it.amount }.toFloat()
+            }
+            barEntries.add(BarEntry(index.toFloat(), values))
+        }
+
+        val barDataSet = BarDataSet(barEntries, "카테고리별 지출")
+        barDataSet.colors = categoryColors
+        barDataSet.setDrawValues(false)
+        
+        val barData = BarData(barDataSet)
+        binding.barChart.data = barData
+        binding.barChart.description.isEnabled = false
+        binding.barChart.xAxis.position = XAxis.XAxisPosition.BOTTOM
+        binding.barChart.xAxis.setDrawGridLines(false)
+        binding.barChart.xAxis.granularity = 1f
+        binding.barChart.xAxis.valueFormatter = object : ValueFormatter() {
+            private val labelSdf = SimpleDateFormat("MM/dd", Locale.US)
             override fun getFormattedValue(value: Float): String {
-                return moneyFormatter.format(value.toInt())
+                val idx = value.toInt()
+                if (idx in 0 until 7) {
+                    val cal = Calendar.getInstance()
+                    cal.add(Calendar.DAY_OF_YEAR, idx - 6)
+                    return labelSdf.format(cal.time)
+                }
+                return ""
             }
         }
-        binding.barChart.data = BarData(barDataSet)
-        binding.barChart.description.isEnabled = false
+
+        binding.barChart.legend.isEnabled = false
+        binding.barChart.animateY(1000)
         binding.barChart.invalidate()
     }
 
@@ -417,20 +489,15 @@ class MainActivity : AppCompatActivity() {
         }
         
         calendarAdapter.setData(days, expenses)
-
-        // 🎯 주간 요약 업데이트 추가
         updateWeeklySummary(expenses)
     }
 
     private fun updateWeeklySummary(expenses: List<ExpenseEntity>) {
         val calendar = Calendar.getInstance()
-        
-        // 🎯 "X월 Y주차 요약" 텍스트 설정
         val month = calendar.get(Calendar.MONTH) + 1
         val weekOfMonth = calendar.get(Calendar.WEEK_OF_MONTH)
         binding.tvWeeklySummaryTitle.text = "${month}월 ${weekOfMonth}주차 요약"
 
-        // 이번 주의 시작(일요일)으로 설정
         calendar.set(Calendar.DAY_OF_WEEK, Calendar.SUNDAY)
         calendar.set(Calendar.HOUR_OF_DAY, 0)
         calendar.set(Calendar.MINUTE, 0)
@@ -443,7 +510,6 @@ class MainActivity : AppCompatActivity() {
             calendar.add(Calendar.DAY_OF_WEEK, 1)
         }
         
-        // 다시 일요일로 복구해서 범위 계산
         calendar.time = weekStart
         val weekEndCalendar = Calendar.getInstance()
         weekEndCalendar.time = weekStart
@@ -456,7 +522,6 @@ class MainActivity : AppCompatActivity() {
         val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
         val weeklyExpenses = expenses.filter {
             try {
-                // 날짜 부분만 추출하여 비교 (yyyy-MM-dd)
                 val datePart = if (it.date.length >= 10) it.date.substring(0, 10) else it.date
                 val expenseDate = sdf.parse(datePart)
                 expenseDate != null && !expenseDate.before(weekStart) && !expenseDate.after(weekEnd)
@@ -471,7 +536,6 @@ class MainActivity : AppCompatActivity() {
         binding.tvWeeklyIncome.text = "${moneyFormatter.format(income)}원"
         binding.tvWeeklyExpense.text = "${moneyFormatter.format(expense)}원"
         
-        // 🎯 하단 주간 날짜별 리스트 업데이트
         weeklyCalendarAdapter.setData(weeklyDates, expenses)
     }
 
@@ -482,7 +546,6 @@ class MainActivity : AppCompatActivity() {
         val monthlyIncome = monthlyExpenses.filter { it.category.trim() == "수입" }.sumOf { it.amount }
         val monthlyExpense = monthlyExpenses.filter { it.category.trim() != "수입" }.sumOf { it.amount }
         
-        // 자산 계산: (누적 수입 - 누적 지출)
         val totalIncome = expenses.filter { it.category.trim() == "수입" }.sumOf { it.amount }
         val totalExpense = expenses.filter { it.category.trim() != "수입" }.sumOf { it.amount }
         val currentAsset = totalIncome - totalExpense
@@ -491,7 +554,6 @@ class MainActivity : AppCompatActivity() {
         binding.tvMonthlyIncome.text = "+${moneyFormatter.format(monthlyIncome)}원"
         binding.tvMonthlyExpense.text = "-${moneyFormatter.format(monthlyExpense)}원"
 
-        // 자산 카드 디자인 변경에 맞춰 텍스트 색상 설정 (화이트 배경 카드)
         binding.tvTotalAsset.setTextColor(ContextCompat.getColor(this, R.color.text_primary))
         binding.tvTotalAssetLabel.setTextColor(ContextCompat.getColor(this, R.color.text_secondary))
         binding.tvMonthlyIncome.setTextColor(ContextCompat.getColor(this, R.color.income))
@@ -584,6 +646,8 @@ class MainActivity : AppCompatActivity() {
         binding.containerAdd.visibility = if (tabIndex == 2) View.VISIBLE else View.GONE
         binding.containerCalendar.visibility = if (tabIndex == 3) View.VISIBLE else View.GONE
         binding.containerHistory.visibility = if (tabIndex == 4) View.VISIBLE else View.GONE
+
+        updateAddTabUI()
 
         val inactiveColor = ContextCompat.getColor(this, R.color.text_secondary)
         val activeColor = ContextCompat.getColor(this, R.color.primary)

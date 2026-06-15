@@ -30,12 +30,22 @@ class ExpenseAdapter(
             val context = binding.root.context
             val dec = DecimalFormat("#,###")
 
-            binding.tvItemTitle.text = expense.title
-            binding.tvItemAmount.text = "${dec.format(expense.amount)}원"
-            binding.tvItemDateWeather.text = "${expense.date} | ${expense.weather}"
-
             // 🎯 리스트의 카테고리를 레포지토리와 동일한 기준으로 표시
             val category = expense.category.trim()
+
+            binding.tvItemTitle.text = expense.title
+            
+            // 🎨 수입/지출 색상 구분
+            if (category == "수입") {
+                binding.tvItemAmount.text = "+${dec.format(expense.amount)}원"
+                binding.tvItemAmount.setTextColor(ContextCompat.getColor(context, R.color.income))
+            } else {
+                binding.tvItemAmount.text = "-${dec.format(expense.amount)}원"
+                binding.tvItemAmount.setTextColor(ContextCompat.getColor(context, R.color.expense))
+            }
+
+            binding.tvItemDateWeather.text = "${expense.date} | ${expense.weather}"
+
             val emojis = mapOf("식비" to "🍴", "교통비" to "🚌", "쇼핑" to "🛍️", "문화" to "🎬", "투자" to "📈", "수입" to "💰", "기타" to "🏷️")
             val emoji = emojis[category] ?: "🏷️"
             binding.tvItemCategory.text = "$emoji $category"

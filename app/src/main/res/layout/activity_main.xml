@@ -80,6 +80,49 @@
                     android:layout_marginTop="4dp"
                     android:layout_marginBottom="24dp" />
 
+                <!-- AI 응원의 한마디 (위치 이동 및 이름 변경) -->
+                <TextView
+                    android:id="@+id/tv_ai_title"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="응원의 한마디"
+                    android:textColor="@color/text_primary"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="12dp" />
+
+                <androidx.cardview.widget.CardView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:cardBackgroundColor="#F8F9FF"
+                    app:cardCornerRadius="16dp"
+                    app:cardElevation="0dp"
+                    android:layout_marginBottom="24dp">
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:padding="16dp"
+                        android:gravity="center_vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="💡"
+                            android:textSize="24sp"
+                            android:layout_marginEnd="12dp" />
+
+                        <TextView
+                            android:id="@+id/tv_ai_summary"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="데이터를 분석하여 따뜻한 응원을 준비 중입니다..."
+                            android:textColor="@color/text_primary"
+                            android:textSize="14sp"
+                            android:lineSpacingExtra="4dp" />
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
+
                 <androidx.cardview.widget.CardView
                     android:id="@+id/card_total_asset"
                     android:layout_width="match_parent"
@@ -291,48 +334,6 @@
                             android:layout_marginTop="12dp"
                             android:progress="0"
                             android:progressDrawable="@drawable/bg_progress_custom" />
-                    </LinearLayout>
-                </androidx.cardview.widget.CardView>
-
-                <TextView
-                    android:id="@+id/tv_ai_title"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="AI 소비 리포트"
-                    android:textColor="@color/text_primary"
-                    android:textSize="18sp"
-                    android:textStyle="bold"
-                    android:layout_marginBottom="12dp" />
-
-                <androidx.cardview.widget.CardView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    app:cardBackgroundColor="#F8F9FF"
-                    app:cardCornerRadius="16dp"
-                    app:cardElevation="0dp"
-                    android:layout_marginBottom="24dp">
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:padding="16dp"
-                        android:gravity="center_vertical">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="💡"
-                            android:textSize="24sp"
-                            android:layout_marginEnd="12dp" />
-
-                        <TextView
-                            android:id="@+id/tv_ai_summary"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:text="지출 데이터를 분석하여 맞춤형 조언을 생성하고 있습니다..."
-                            android:textColor="@color/text_primary"
-                            android:textSize="14sp"
-                            android:lineSpacingExtra="4dp" />
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
 
@@ -811,8 +812,18 @@
             android:gravity="center"
             android:clickable="true"
             android:focusable="true">
-            <FrameLayout android:layout_width="44dp" android:layout_height="44dp" android:background="@drawable/bg_circle_black">
-                <ImageView android:layout_width="24dp" android:layout_height="24dp" android:layout_gravity="center" android:src="@android:drawable/ic_input_add" app:tint="@color/white" />
+            <FrameLayout
+                android:id="@+id/fl_tab_add_bg"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:background="@drawable/bg_circle_black">
+                <ImageView
+                    android:id="@+id/iv_tab_add"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:layout_gravity="center"
+                    android:src="@android:drawable/ic_input_add"
+                    app:tint="@color/white" />
             </FrameLayout>
         </LinearLayout>
 

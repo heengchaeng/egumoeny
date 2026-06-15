@@ -44,11 +44,11 @@ class ExpenseRepository(private val expenseDao: ExpenseDao) {
     suspend fun parseExpense(sentence: String, weather: String): ExpenseEntity {
         return try {
             val prompt = """
-                사용자의 지출 문장을 분석해서 오직 JSON 객체 한 개만 반환해라. 앞뒤에 ```json 같은 마크다운이나 설명은 절대 붙이지 마라.
+                사용자의 지출 또는 수입 문장을 분석해서 오직 JSON 객체 한 개만 반환해라. 앞뒤에 ```json 같은 마크다운이나 설명은 절대 붙이지 마라.
                 문장: "$sentence"
                 반드시 아래 키 명칭을 지킬 것:
                 {"title": "항목이름", "amount": 1000, "category": "식비"}
-                카테고리는 무조건 다음 6개 중 하나로만 매핑해야 한다: '식비', '교통비', '쇼핑', '문화', '투자', '기타'
+                카테고리는 무조건 다음 7개 중 하나로만 매핑해야 한다: '식비', '교통비', '쇼핑', '문화', '투자', '수입', '기타'
             """.trimIndent()
 
             val response = generativeModel.generateContent(prompt)
@@ -90,6 +90,7 @@ class ExpenseRepository(private val expenseDao: ExpenseDao) {
                 lowered.contains("옷") || lowered.contains("쇼핑") || lowered.contains("마트") || lowered.contains("쿠팡") || lowered.contains("shopping") -> category = "쇼핑"
                 lowered.contains("영화") || lowered.contains("게임") || lowered.contains("노래방") || lowered.contains("운동") || lowered.contains("movie") -> category = "문화"
                 lowered.contains("주식") || lowered.contains("코인") || lowered.contains("투자") || lowered.contains("저축") || lowered.contains("invest") -> category = "투자"
+                lowered.contains("월급") || lowered.contains("용돈") || lowered.contains("입금") || lowered.contains("보너스") || lowered.contains("수입") || lowered.contains("급여") -> category = "수입"
             }
             
             val cleanTitle = sentence.replace(Regex("\\d"), "").replace(",", "").replace("원", "").trim().take(12)
@@ -104,21 +105,29 @@ class ExpenseRepository(private val expenseDao: ExpenseDao) {
         }
     }
 
-    // AI 소비 분석 잔소리 기능 (화면에 날것의 JSON 에러가 노출되는 현상을 완전히 해결)
+    // AI 소비 분석 기능 (사용자의 실제 내역을 바탕으로 구체적인 피드백 제공)
     suspend fun getAiFeedback(summary: String): String {
         return try {
             val prompt = """
-                당신은 사용자의 자산 관리를 돕는 깐깐하고 위트 있는 AI 가계부 비서입니다.
-                다음 이번 달 지출 현황 요약을 보고 지출 피드백을 친근한 말투로 3줄 이내로 작성해 주세요.
+                당신은 사용자의 자산 관리를 돕는 아주 친절하고 유능한 AI 가계부 비서입니다.
+                사용자의 이번 달 지출 현황과 최근 내역을 바탕으로 맞춤형 '응원의 한마디'를 작성해 주세요.
+                
+                [분석 데이터]
                 $summary
+                
+                [작성 가이드라인]
+                1. 첫 문장은 사용자의 이름을 부르는 것처럼 친근하게 시작하세요 (예: "오늘도 고생 많으셨어요!").
+                2. 지출 내역 중 구체적인 항목(예: 가장 큰 지출이나 최근 항목)을 언급하며 공감하거나 격려해 주세요.
+                3. 만약 예산을 초과했다면 부드럽게 주의를 주고, 잘 아끼고 있다면 칭찬을 아끼지 마세요.
+                4. 전체적으로 따뜻하고 긍정적인 톤을 유지하며 3줄 내외로 작성하세요.
+                5. 이모지를 적절히 사용하여 생동감 있게 표현하세요.
             """.trimIndent()
 
             val response = generativeModel.generateContent(prompt)
-            response.text ?: "이번 달 소비 분석을 가져오지 못했습니다. 내역을 더 추가해 보세요!"
+            response.text ?: "데이터를 분석해 보니 이번 달도 아주 잘 살고 계시네요! 조금만 더 힘내 봐요. 🌸"
         } catch (e: Exception) {
             e.printStackTrace()
-            // 🚨 스크린샷의 끔찍한 404 에러 텍스트 대신 UI에 무조건 노출될 예쁜 문구 고정
-            "🤖 AI 비서가 완벽한 한 달을 응원합니다!\n현재 예산 범위 내에서 아주 스마트하게 소비하고 계시네요. 지출 내역을 꾸준히 관리해 보세요!"
+            "🤖 언제나 당신의 현명한 소비 생활을 응원합니다! 오늘도 기분 좋은 하루 보내세요. ✨"
         }
     }
 

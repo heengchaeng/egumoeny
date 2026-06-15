@@ -65,12 +65,36 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
         val monthlyExpenses = expenses.filter { it.date.startsWith(currentMonth) }
         
         val totalSpent = monthlyExpenses.filter { it.category.trim() != "수입" }.sumOf { it.amount }
-        val categorySummary = monthlyExpenses.filter { it.category.trim() != "수입" }
+        val totalIncome = monthlyExpenses.filter { it.category.trim() == "수입" }.sumOf { it.amount }
+        
+        // 지출만 필터링
+        val actualExpenses = monthlyExpenses.filter { it.category.trim() != "수입" }
+        
+        // 1. 카테고리별 요약
+        val categorySummary = actualExpenses
             .groupBy { it.category.trim() }
             .map { "${it.key}: ${it.value.sumOf { e -> e.amount }}원" }
             .joinToString(", ")
             
-        val summary = "이번 달 총 예산은 ${getTotalBudget()}원인데, 현재까지 총 ${totalSpent}원 썼어. 카테고리별로는 [$categorySummary] 이렇게 썼네."
+        // 2. 가장 큰 지출 항목 찾기
+        val maxExpense = actualExpenses.maxByOrNull { it.amount }
+        val maxExpenseText = if (maxExpense != null) "가장 큰 지출은 '${maxExpense.title}'에 ${maxExpense.amount}원이야." else ""
+
+        // 3. 최근 지출 5개 내역
+        val recentHistory = actualExpenses.takeLast(5).reversed()
+            .joinToString(", ") { "${it.title}(${it.amount}원)" }
+
+        val summary = """
+            - 사용자 닉네임: ${getUserNickname()}
+            - 이번 달 총 수입: ${totalIncome}원
+            - 이번 달 총 지출: ${totalSpent}원 (예산: ${getTotalBudget()}원)
+            - 카테고리별: [$categorySummary]
+            - $maxExpenseText
+            - 최근 지출 내역: [$recentHistory]
+            
+            이 내역들을 보고 사용자의 소비 습관을 분석해서 따뜻한 응원과 현실적인 조언을 섞어서 말해줘.
+        """.trimIndent()
+
         _aiFeedback.value = repository.getAiFeedback(summary)
     }
 
